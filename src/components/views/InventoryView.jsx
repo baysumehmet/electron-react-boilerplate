@@ -101,18 +101,27 @@ const InventoryView = ({ username }) => {
     <DndProvider backend={HTML5Backend}>
       <div className="p-4 bg-gray-800 rounded-lg text-white">
         <div className="flex flex-col sm:flex-row gap-8">
-          <div className="flex-shrink-0 flex sm:flex-col items-center gap-2">
+          
+          {/* Karakter, Zırh ve Offhand Alanı */}
+          <div className="flex-shrink-0 flex justify-center items-start gap-4">
+            {/* Armor slots */}
+            <div className="flex flex-col gap-1 mt-5">
+              {renderGrid(5, 8)}
+            </div>
+            
             <img 
               src={`https://mc-heads.net/body/${username}/128`} 
               alt="Character"
               className="w-32 h-32"
               style={{ imageRendering: 'pixelated' }}
             />
-            {/* Armor slots */}
-            <div className="flex sm:flex-col gap-1">
-              {renderGrid(5, 8)}
+
+            {/* Offhand slot */}
+            <div className="mt-5">
+              {renderSlot(45)}
             </div>
           </div>
+
           <div className="flex-grow">
             <div className="flex justify-between items-start mb-4">
               <h3 className="text-lg font-bold">Envanter</h3>
@@ -146,10 +155,6 @@ const InventoryView = ({ username }) => {
             {/* Hotbar */}
             <div className="grid grid-cols-9 gap-1 mt-2 pt-2 border-t-2 border-gray-700">
               {renderGrid(36, 44)}
-            </div>
-            {/* Offhand slot */}
-            <div className="absolute left-[-50px] bottom-[80px]">
-              {renderSlot(45)}
             </div>
           </div>
         </div>

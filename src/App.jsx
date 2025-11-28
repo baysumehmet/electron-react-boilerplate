@@ -40,6 +40,12 @@ function App() {
           case 'spawn': botState.isConnected = true; botState.chat = [...botState.chat, data]; break;
           case 'end': botState.isConnected = false; botState.chat = [...botState.chat, data]; break;
           case 'health': botState.health = data.data?.health; botState.food = data.data?.food; break;
+          
+          // These events are not for chat, so we just break.
+          case 'inventory':
+          case 'hotbar-update':
+            break;
+
           default: botState.chat = [...botState.chat, data]; break;
         }
         newState[username] = botState;
