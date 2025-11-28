@@ -87,7 +87,7 @@ function App() {
   const activeAccountDetails = accounts.find(acc => acc.username === activeAccount);
 
   const renderView = () => {
-    if (view === 'add-account') return <AddAccountView onAdd={handleAddAccount} />;
+    if (view === 'add-account') return <AddAccountView accounts={accounts} onAdd={handleAddAccount} />;
     if (view === 'server-settings') return <ServerSettingsView initialServerInfo={serverInfo} onSave={handleSaveServerInfo} />;
     return (<>
         <Header status={{ ...activeBotCurrentState, username: activeAccountDetails?.username, server: serverInfo.host }} onConnectAll={handleConnectAll} onDisconnectAll={handleDisconnectAll} />

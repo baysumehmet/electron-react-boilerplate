@@ -1,9 +1,31 @@
 import React, { useState } from 'react';
 
-const AddAccountView = ({ onAdd }) => {
+const AddAccountView = ({ accounts, onAdd }) => {
   const [username, setUsername] = useState('');
   const [auth, setAuth] = useState('offline');
-  const handleSubmit = (e) => { e.preventDefault(); if (!username.trim()) { alert('Kullanıcı adı boş bırakılamaz.'); return; } onAdd({ username, auth, }); };
+  const [error, setError] = useState(null);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!username.trim()) {
+      setError('Kullanıcı adı boş bırakılamaz.');
+      return;
+    }
+    // Check for duplicates (case-insensitive)
+    const isDuplicate = accounts.some(
+      (acc) => acc.username.toLowerCase() === username.toLowerCase()
+    );
+
+    if (isDuplicate) {
+      setError('Bu kullanıcı adına sahip bir hesap zaten mevcut.');
+      return;
+    }
+    
+    // If all checks pass, clear any previous error and call onAdd
+    setError(null);
+    onAdd({ username, auth });
+  };
+
   return (
     <div className="p-8">
       <h2 className="text-2xl font-bold mb-6">Yeni Hesap Ekle</h2>
@@ -11,6 +33,7 @@ const AddAccountView = ({ onAdd }) => {
         <div>
           <label htmlFor="acc-username" className="block text-sm font-medium text-gray-300">Kullanıcı Adı</label>
           <input type="text" id="acc-username" value={username} onChange={e => setUsername(e.target.value)} className="mt-1 bg-gray-700 rounded p-2 w-full text-white" required />
+          {error && <p className="mt-2 text-sm text-red-500">{error}</p>}
         </div>
         <div>
           <label htmlFor="acc-auth" className="block text-sm font-medium text-gray-300">Kimlik Doğrulama</label>
