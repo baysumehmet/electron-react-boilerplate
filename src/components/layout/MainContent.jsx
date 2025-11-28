@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import SettingsView from '../views/SettingsView.jsx';
 import InventoryView from '../views/InventoryView.jsx';
+import { DndProvider } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
+import ChestView from '../views/ChestView.jsx';
 
 
 // --- CHAT VE ANTI-AFK (Değişiklik yok) ---
@@ -24,7 +27,7 @@ const AntiAfkView = ({ activeBotUsername }) => {
 const BASE_TABS = ['Sohbet', 'Anti-AFK', 'Ayarlar'];
 const CONNECTED_TABS = ['Sohbet', 'Envanter', 'Anti-AFK', 'Ayarlar'];
 
-const MainContent = ({ account, events, isConnected, onConnect, onDisconnect, onDelete, onSaveSettings }) => {
+const MainContent = ({ account, events, isConnected, chest, onConnect, onDisconnect, onDelete, onSaveSettings }) => {
     const TABS = isConnected ? CONNECTED_TABS : BASE_TABS;
     const [activeTab, setActiveTab] = useState(TABS[0]);
 
@@ -38,6 +41,8 @@ const MainContent = ({ account, events, isConnected, onConnect, onDisconnect, on
     }, [account, isConnected]);
 
     if (!account) return <main className="flex-1 p-4 flex items-center justify-center text-gray-400">Lütfen soldaki menüden bir hesap seçin veya yeni bir hesap ekleyin.</main>;
+
+    const isInventoryTab = activeTab === 'Envanter' && isConnected;
 
     return (
         <main className="flex-1 p-4 flex flex-col overflow-y-hidden">
@@ -60,7 +65,16 @@ const MainContent = ({ account, events, isConnected, onConnect, onDisconnect, on
                 {activeTab === 'Sohbet' && <ChatView events={events} activeBotUsername={account.username} />}
                 {activeTab === 'Anti-AFK' && <AntiAfkView activeBotUsername={account.username} />}
                 {activeTab === 'Ayarlar' && <SettingsView account={account} onSaveSettings={onSaveSettings} onDelete={onDelete} />}
-                {activeTab === 'Envanter' && isConnected && <InventoryView username={account.username} />}
+                {isInventoryTab && (
+                    <DndProvider backend={HTML5Backend}>
+                        <InventoryView username={account.username} chest={chest} />
+                        {chest.isOpen && (
+                            <div className="mt-4">
+                                <ChestView title={chest.title} slots={chest.slots} username={account.username} onClose={() => window.api.closeWindow(account.username)} />
+                            </div>
+                        )}
+                    </DndProvider>
+                )}
             </div>
         </main>
     );

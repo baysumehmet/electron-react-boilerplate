@@ -4,6 +4,7 @@ import Header from './components/layout/Header';
 import MainContent from './components/layout/MainContent';
 import AddAccountView from './components/views/AddAccountView';
 import ServerSettingsView from './components/views/ServerSettingsView';
+import ChestView from './components/views/ChestView';
 
 const DEFAULT_SERVER_INFO = { host: 'xmital123123.aternos.me', port: 64540 };
 
@@ -13,6 +14,7 @@ function App() {
   const [activeAccount, setActiveAccount] = useState(null);
   const [botsState, setBotsState] = useState({});
   const [view, setView] = useState('dashboard');
+  const [chest, setChest] = useState({ isOpen: false, title: '', slots: [] });
 
   useEffect(() => {
     const loadData = async () => {
@@ -33,6 +35,16 @@ function App() {
   useEffect(() => {
     const cleanup = window.api.onBotEvent((data) => {
       const { username, type } = data;
+
+      // Only update state if the event is for the active account (for UI-related events)
+      if (username === activeAccount) {
+        if (type === 'chest-open') {
+          setChest({ isOpen: true, title: data.data.title, slots: data.data.slots });
+        } else if (type === 'chest-close') {
+          setChest({ isOpen: false, title: '', slots: [] });
+        }
+      }
+
       setBotsState(prev => {
         const newState = { ...prev };
         const botState = newState[username] || { health: 20, food: 20, chat: [], isConnected: false };
@@ -40,12 +52,11 @@ function App() {
           case 'spawn': botState.isConnected = true; botState.chat = [...botState.chat, data]; break;
           case 'end': botState.isConnected = false; botState.chat = [...botState.chat, data]; break;
           case 'health': botState.health = data.data?.health; botState.food = data.data?.food; break;
-          
-          // These events are not for chat, so we just break.
           case 'inventory':
           case 'hotbar-update':
+          case 'chest-open':
+          case 'chest-close':
             break;
-
           default: botState.chat = [...botState.chat, data]; break;
         }
         newState[username] = botState;
@@ -53,7 +64,14 @@ function App() {
       });
     });
     return cleanup;
-  }, []);
+  }, [activeAccount]); // Depend on activeAccount to ensure correct context
+
+  const handleAccountSelect = (username) => {
+    setView('dashboard');
+    setActiveAccount(username);
+    // Close chest window when switching accounts
+    setChest({ isOpen: false, title: '', slots: [] });
+  };
 
   const saveAndSetAccounts = (newAccounts) => { setAccounts(newAccounts); window.api.saveAccounts(newAccounts); };
   const handleAddAccount = (newAccount) => { const newAccounts = [...accounts, { ...newAccount, autoLoginCommands: '', commandDelay: 5 }]; saveAndSetAccounts(newAccounts); setView('dashboard'); setActiveAccount(newAccount.username); };
@@ -78,6 +96,7 @@ function App() {
             account={activeAccountDetails} 
             events={activeBotCurrentState.chat} 
             isConnected={activeBotCurrentState.isConnected}
+            chest={chest}
             onConnect={() => handleConnect(activeAccountDetails)} 
             onDisconnect={handleDisconnect} 
             onDelete={handleDeleteAccount} 
@@ -91,7 +110,7 @@ function App() {
       <Sidebar 
         accounts={accounts} 
         activeAccount={activeAccount} 
-        onAccountSelect={(username) => { setView('dashboard'); setActiveAccount(username); }} 
+        onAccountSelect={handleAccountSelect}
         onAddAccount={() => setView('add-account')} 
         onGoHome={() => setView('server-settings')}
       />

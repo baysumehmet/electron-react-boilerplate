@@ -21,6 +21,16 @@ contextBridge.exposeInMainWorld('api', {
 
   setActiveHotbar: (options) => ipcRenderer.send('set-active-hotbar', options),
 
+  openNearestChest: (username) => ipcRenderer.send('open-nearest-chest', username),
+
+  closeWindow: (username) => ipcRenderer.send('close-window', username),
+
+  depositItem: (options) => ipcRenderer.send('deposit-item', options),
+  withdrawItem: (options) => ipcRenderer.send('withdraw-item', options),
+
+  depositAll: (username) => ipcRenderer.send('deposit-all', username),
+  withdrawAll: (username) => ipcRenderer.send('withdraw-all', username),
+
   // Depolama
   loadAccounts: () => ipcRenderer.invoke('load-accounts'),
   saveAccounts: (accounts) => ipcRenderer.send('save-accounts', accounts),

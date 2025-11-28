@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { DndProvider } from 'react-dnd';
-import { HTML5Backend } from 'react-dnd-html5-backend';
 import { InventorySlot } from '../inventory/InventorySlot';
 import DraggableItem from '../inventory/DraggableItem';
 
-const InventoryView = ({ username }) => {
+const InventoryView = ({ username, chest }) => {
   const [inventorySlots, setInventorySlots] = useState(Array(46).fill(null));
-  const [activeHotbar, setActiveHotbar] = useState(0); // 0-8 index
+  const [activeHotbar, setActiveHotbar] = useState(0);
   const [selectedSlot, setSelectedSlot] = useState(null);
 
+  const isChestOpen = chest && chest.isOpen;
+
   useEffect(() => {
-    if (!username) return;
-    let isMounted = true;
+    // Only fetch player inventory if no chest is open.
+    // If a chest is open, the data comes from the chest prop.
+    if (!username || isChestOpen) return;
     
+    let isMounted = true;
     window.api.getInventory(username).then(inv => {
       if (isMounted && inv && inv.slots) {
         setInventorySlots(inv.slots);
@@ -21,7 +23,6 @@ const InventoryView = ({ username }) => {
 
     const handleBotEvent = (data) => {
       if (!isMounted || data.username !== username) return;
-
       if (data.type === 'inventory') {
         setInventorySlots(data.data.slots);
       } else if (data.type === 'inventory-error') {
@@ -36,30 +37,28 @@ const InventoryView = ({ username }) => {
       isMounted = false;
       if (typeof cleanup === 'function') { cleanup(); }
     };
-  }, [username]);
+  }, [username, isChestOpen]); // Re-run if chest opens/closes
 
-  const handleDropItem = (draggedItem, destinationSlot) => {
-    // Optimistic update
-    setInventorySlots(currentSlots => {
-      const newSlots = [...currentSlots];
-      const sourceSlot = draggedItem.slot;
-      const sourceItem = newSlots[sourceSlot];
-      const destinationItem = newSlots[destinationSlot];
-      newSlots[destinationSlot] = { ...sourceItem, slot: destinationSlot };
-      newSlots[sourceSlot] = destinationItem ? { ...destinationItem, slot: sourceSlot } : null;
-      return newSlots;
-    });
+  // When a chest is open, the coordinate system changes.
+  // We need to figure out the correct slots from the combined window array.
+  const slots = isChestOpen ? chest.slots : inventorySlots;
+  const chestSlotCount = isChestOpen ? slots.length - 36 : 0;
+  
+  // Armor is always separate from the chest window, so we always render from base inventory state
+  const armorSlots = inventorySlots.slice(5, 9);
+
+  const handleDropItem = () => {
+    // Optimistic updates are disabled. Backend events are the source of truth.
   };
 
   const handleSlotClick = (slotNumber) => {
-    // Tıklanan slotu seçili olarak ayarla veya seçimini kaldır
     setSelectedSlot(prev => (prev === slotNumber ? null : slotNumber));
   };
 
   const handleTossSelected = () => {
     if (selectedSlot !== null) {
       window.api.tossItemStack({ username, sourceSlot: selectedSlot });
-      setSelectedSlot(null); // Eşya atıldıktan sonra seçimi kaldır
+      setSelectedSlot(null);
     }
   };
 
@@ -68,20 +67,23 @@ const InventoryView = ({ username }) => {
     setSelectedSlot(null);
   };
   
-  const renderSlot = (slotNumber) => {
-    const item = inventorySlots[slotNumber];
-    const isHotbar = slotNumber >= 36 && slotNumber <= 44;
-    const isActive = isHotbar && (slotNumber === activeHotbar + 36);
-    const isSelected = slotNumber === selectedSlot;
+  const renderSlot = (slotNumberInContext) => {
+    const item = slots[slotNumberInContext];
+    const isHotbar = !isChestOpen && slotNumberInContext >= 36 && slotNumberInContext <= 44;
+    const isActiveInPlayerInv = isHotbar && (slotNumberInContext === activeHotbar + 36);
+    // When chest is open, hotbar slots are shifted.
+    const isActiveInChestview = isChestOpen && (slotNumberInContext === chestSlotCount + 27 + activeHotbar);
+    
+    const isSelected = slotNumberInContext === selectedSlot;
 
     return (
       <InventorySlot
-        key={slotNumber}
-        slotNumber={slotNumber}
+        key={slotNumberInContext}
+        slotNumber={slotNumberInContext}
         username={username}
         onDropItem={handleDropItem}
-        onClick={() => handleSlotClick(slotNumber)}
-        isActive={isActive}
+        onClick={() => handleSlotClick(slotNumberInContext)}
+        isActive={isActiveInPlayerInv || isActiveInChestview}
         isSelected={isSelected}
       >
         {item && <DraggableItem item={item} />}
@@ -90,23 +92,26 @@ const InventoryView = ({ username }) => {
   };
   
   const renderGrid = (start, end) => {
-    const slots = [];
+    const slotsToRender = [];
     for (let i = start; i <= end; i++) {
-      slots.push(renderSlot(i));
+      slotsToRender.push(renderSlot(i));
     }
-    return slots;
+    return slotsToRender;
   };
 
   return (
-    <DndProvider backend={HTML5Backend}>
       <div className="p-4 bg-gray-800 rounded-lg text-white">
         <div className="flex flex-col sm:flex-row gap-8">
           
           {/* Karakter, Zırh ve Offhand Alanı */}
           <div className="flex-shrink-0 flex justify-center items-start gap-4">
-            {/* Armor slots */}
+            {/* Armor slots are always rendered from player inventory state */}
             <div className="flex flex-col gap-1 mt-5">
-              {renderGrid(5, 8)}
+              {inventorySlots.slice(5, 9).map((item, index) => (
+                  <InventorySlot key={5 + index} slotNumber={5 + index} username={username} onDropItem={handleDropItem} onClick={() => handleSlotClick(5 + index)} isSelected={selectedSlot === (5 + index)}>
+                      {item && <DraggableItem item={item} />}
+                  </InventorySlot>
+              ))}
             </div>
             
             <img 
@@ -118,48 +123,34 @@ const InventoryView = ({ username }) => {
 
             {/* Offhand slot */}
             <div className="mt-5">
-              {renderSlot(45)}
+              {/* Also always from player inventory state */}
+              <InventorySlot slotNumber={45} username={username} onDropItem={handleDropItem} onClick={() => handleSlotClick(45)} isSelected={selectedSlot === 45}>
+                  {inventorySlots[45] && <DraggableItem item={inventorySlots[45]} />}
+              </InventorySlot>
             </div>
           </div>
 
           <div className="flex-grow">
             <div className="flex justify-between items-start mb-4">
               <h3 className="text-lg font-bold">Envanter</h3>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => window.api.setActiveHotbar({ username, slot: selectedSlot })}
-                  disabled={selectedSlot === null || selectedSlot < 36 || selectedSlot > 44}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Aktif Hotbar Yap
-                </button>
-                <button 
-                  onClick={handleTossSelected} 
-                  disabled={selectedSlot === null}
-                  className="bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-1 px-3 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Seçili Eşyayı At
-                </button>
-                <button 
-                  onClick={handleClearInventory} 
-                  className="bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-3 rounded text-sm"
-                >
-                  Envanteri Boşalt
-                </button>
+              <div className="flex gap-2 flex-wrap justify-end">
+                <button onClick={() => window.api.openNearestChest(username)} className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-1 px-3 rounded text-sm">En Yakındaki Sandığı Aç</button>
+                <button onClick={() => window.api.setActiveHotbar({ username, slot: selectedSlot })} disabled={selectedSlot === null || (isChestOpen ? (selectedSlot < chestSlotCount + 27 || selectedSlot > chestSlotCount + 35) : (selectedSlot < 36 || selectedSlot > 44))} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed">Aktif Hotbar Yap</button>
+                <button onClick={handleTossSelected} disabled={selectedSlot === null} className="bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-1 px-3 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed">Seçili Eşyayı At</button>
+                <button onClick={handleClearInventory} className="bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-3 rounded text-sm">Envanteri Boşalt</button>
               </div>
             </div>
             {/* Main Inventory */}
             <div className="grid grid-cols-9 gap-1">
-              {renderGrid(9, 35)}
+              {isChestOpen ? renderGrid(chestSlotCount, chestSlotCount + 26) : renderGrid(9, 35)}
             </div>
             {/* Hotbar */}
             <div className="grid grid-cols-9 gap-1 mt-2 pt-2 border-t-2 border-gray-700">
-              {renderGrid(36, 44)}
+              {isChestOpen ? renderGrid(chestSlotCount + 27, chestSlotCount + 35) : renderGrid(36, 44)}
             </div>
           </div>
         </div>
       </div>
-    </DndProvider>
   );
 };
 

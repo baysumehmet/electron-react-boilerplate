@@ -83,6 +83,30 @@ app.whenReady().then(() => {
     botManager.setActiveHotbar(options);
   });
 
+  ipcMain.on('open-nearest-chest', (event, username) => {
+    botManager.openNearestChest(username);
+  });
+
+  ipcMain.on('close-window', (event, username) => {
+    botManager.closeWindow(username);
+  });
+
+  ipcMain.on('deposit-item', (event, options) => {
+    botManager.depositItem(options);
+  });
+
+  ipcMain.on('withdraw-item', (event, options) => {
+    botManager.withdrawItem(options);
+  });
+
+  ipcMain.on('deposit-all', (event, username) => {
+    botManager.depositAll(username);
+  });
+
+  ipcMain.on('withdraw-all', (event, username) => {
+    botManager.withdrawAll(username);
+  });
+
   console.log('--- IPC dinleyicileri ayarlandı. Pencere oluşturuluyor... ---');
   
   createWindow();

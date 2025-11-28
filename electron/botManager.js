@@ -74,7 +74,7 @@ function connectBot(options, webContents) {
       webContents.send('bot-event', {
         type: 'inventory',
         username: bot.username,
-        data: { slots: bot.inventory.slots }
+        data: { slots: [...bot.inventory.slots] } // Send a copy
       });
     });
 
@@ -102,8 +102,96 @@ function connectBot(options, webContents) {
     webContents.send('bot-event', { type: 'hotbar-update', username: bot.username, data: { activeSlot: bot.quickBarSlot } });
   });
 
+  bot.on('windowOpen', (window) => {
+    const titleStr = window.title.toString();
+    console.log(`[${bot.username}] Pencere açıldı: ${titleStr}`);
+    try {
+        // Mineflayer window titles can be ChatMessage objects (JSON strings)
+        const titleJson = JSON.parse(titleStr);
+        // Check for various chest types
+        if (titleJson.translate && titleJson.translate.startsWith('container.chest')) {
+            // Send initial state
+            webContents.send('bot-event', {
+                type: 'chest-open',
+                username: bot.username,
+                data: {
+                    title: titleJson.translate,
+                    slots: window.slots
+                }
+            });
+            // Listen for changes within this specific window
+            window.on('updateSlot', (slot, oldItem, newItem) => {
+                console.log(`[${bot.username}] Sandık güncellendi, slot: ${slot}`);
+                webContents.send('bot-event', {
+                    type: 'chest-open', // Re-send the open event with updated slots
+                    username: bot.username,
+                    data: {
+                        title: titleJson.translate,
+                        slots: [...window.slots] // Send a copy
+                    }
+                });
+            });
+        }
+    } catch(e) {
+        // Title was not JSON, maybe a simple string. For future use.
+        if (titleStr.includes('Chest')) {
+             webContents.send('bot-event', {
+                type: 'chest-open',
+                username: bot.username,
+                data: {
+                    title: titleStr,
+                    slots: [...window.slots] // Send a copy
+                }
+            });
+            // Also add listener here for non-json titles
+            window.on('updateSlot', (slot, oldItem, newItem) => {
+                 webContents.send('bot-event', {
+                    type: 'chest-open',
+                    username: bot.username,
+                    data: {
+                        title: titleStr,
+                        slots: [...window.slots] // Send a copy
+                    }
+                });
+            });
+        }
+    }
+  });
+
+  bot.on('windowClose', (window) => {
+    console.log(`[${bot.username}] Pencere kapandı.`);
+    bot.activeChest = null; // Clear the reference
+    webContents.send('bot-event', { type: 'chest-close', username: bot.username });
+  });
+
   return bot;
 }
+
+async function openNearestChest(username) {
+    const bot = bots[username];
+    if (!bot) return;
+
+    try {
+        const chestBlock = bot.findBlock({
+            matching: bot.registry.blocksByName.chest.id,
+            maxDistance: 16,
+        });
+
+        if (chestBlock) {
+            console.log(`[${username}] En yakın sandık bulundu:`, chestBlock.position);
+            // Open the chest and store the returned Chest object
+            bot.activeChest = await bot.openChest(chestBlock);
+        } else {
+            bot.webContents.send('bot-event', { type: 'error', username, message: 'Yakında sandık bulunamadı.' });
+            console.log(`[${username}] Yakında sandık bulunamadı.`);
+        }
+    } catch (err) {
+        const errorMessage = `Sandık açılamadı: ${err.message}`;
+        console.error(`[${username}] Sandık açılırken hata:`, err.message);
+        bot.webContents.send('bot-event', { type: 'inventory-error', username, message: errorMessage });
+    }
+}
+
 
 function startAntiAFK(username, intervalSeconds = 15) {
   const bot = bots[username];
@@ -168,14 +256,30 @@ function getInventory(username) {
 async function moveItem({ username, sourceSlot, destinationSlot }) {
   const bot = bots[username];
   if (!bot) return;
+
+  const window = bot.currentWindow || bot.inventory;
+  const sourceItem = window.slots[sourceSlot];
+  const destItem = window.slots[destinationSlot];
+
+  if (!sourceItem) return; // Can't move an empty slot
+
   try {
-    // moveSlotItem mineflayer'da envanter işlemleri için standart bir fonksiyondur.
-    await bot.moveSlotItem(sourceSlot, destinationSlot);
-    console.log(`[${username}] Eşya taşındı: ${sourceSlot} -> ${destinationSlot}`);
+    console.log(`[${username}] Moving item from ${sourceSlot} to ${destinationSlot}`);
+    if (destItem) {
+      console.log(`[${username}] Destination not empty. Swapping items.`);
+      // Perform a swap using three clicks
+      await bot.clickWindow(sourceSlot, 0, 0);
+      await bot.clickWindow(destinationSlot, 0, 0);
+      await bot.clickWindow(sourceSlot, 0, 0);
+    } else {
+      console.log(`[${username}] Destination empty. Simple move.`);
+      // Perform a simple move
+      await bot.clickWindow(sourceSlot, 0, 0);
+      await bot.clickWindow(destinationSlot, 0, 0);
+    }
   } catch (err) {
     const errorMessage = `Eşya taşınamadı: ${err.message}`;
     console.error(`[${username}] Eşya taşınırken hata oluştu: ${sourceSlot} -> ${destinationSlot}`, err.message);
-    // Hata durumunda renderer'a bir olay gönder.
     if (bot.webContents) {
       bot.webContents.send('bot-event', { type: 'inventory-error', username, message: errorMessage });
     }
@@ -238,6 +342,77 @@ function setActiveHotbar({ username, slot }) {
   }
 }
 
+function closeWindow(username) {
+  const bot = bots[username];
+  if (!bot || !bot.currentWindow) return;
+  // This is a generic way to close any window the bot has open.
+  bot.closeWindow(bot.currentWindow);
+}
+
+async function withdrawItem({ username, item }) {
+    const bot = bots[username];
+    const chestWindow = bot.currentWindow;
+    if (!bot || !chestWindow || !item ) return;
+    try {
+        await bot.withdraw(chestWindow, item.type, item.metadata, item.count);
+    } catch (err) {
+        const errorMessage = `Eşya çekilemedi: ${err.message}`;
+        console.error(`[${username}] Eşya çekilirken hata:`, err.message);
+        bot.webContents.send('bot-event', { type: 'inventory-error', username, message: errorMessage });
+    }
+}
+
+async function depositItem({ username, item }) {
+    const bot = bots[username];
+    const chestWindow = bot.currentWindow;
+    if (!bot || !chestWindow || !item ) return;
+    try {
+        await bot.deposit(chestWindow, item.type, item.metadata, item.count);
+    } catch (err) {
+        const errorMessage = `Eşya bırakılamadı: ${err.message}`;
+        console.error(`[${username}] Eşya bırakılırken hata:`, err.message);
+        bot.webContents.send('bot-event', { type: 'inventory-error', username, message: errorMessage });
+    }
+}
+
+async function withdrawAll(username) {
+    const bot = bots[username];
+    const chest = bot.activeChest;
+    if (!bot || !chest) return;
+
+    console.log(`[${username}] Sandıktaki tüm eşyalar alınıyor...`);
+    
+    for (const item of chest.containerItems()) {
+        try {
+            await chest.withdraw(item.type, item.metadata, item.count);
+            await new Promise(resolve => setTimeout(resolve, 50));
+        } catch (err) {
+            console.error(`Eşya çekilirken hata: ${err.message}`);
+            bot.webContents.send('bot-event', { type: 'inventory-error', username, message: `Eşya çekilemedi: ${item.name}` });
+            break; 
+        }
+    }
+}
+
+async function depositAll(username) {
+    const bot = bots[username];
+    const chest = bot.activeChest;
+    if (!bot || !chest) return;
+
+    console.log(`[${username}] Envanterdeki tüm eşyalar sandığa bırakılıyor...`);
+    
+    for (const item of bot.inventory.items()) {
+        try {
+            await chest.deposit(item.type, item.metadata, item.count);
+            await new Promise(resolve => setTimeout(resolve, 50));
+        } catch (err) {
+            console.error(`Eşya bırakılırken hata: ${err.message}`);
+            bot.webContents.send('bot-event', { type: 'inventory-error', username, message: `Eşya bırakılamadı: ${item.name}` });
+            break; 
+        }
+    }
+}
+
 module.exports = {
   connectBot,
   startAntiAFK,
@@ -251,4 +426,10 @@ module.exports = {
   tossItemStack,
   clearInventory,
   setActiveHotbar,
+  openNearestChest,
+  closeWindow,
+  depositItem,
+  withdrawItem,
+  depositAll,
+  withdrawAll,
 };
