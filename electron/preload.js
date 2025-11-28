@@ -3,8 +3,6 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('api', {
   connectBot: (options) => ipcRenderer.send('connect-bot', options),
-  
-  getInventory: (username) => ipcRenderer.invoke('get-inventory', username),
 
   startAntiAFK: (username, interval) => ipcRenderer.send('start-anti-afk', { username, interval }),
 
@@ -14,10 +12,14 @@ contextBridge.exposeInMainWorld('api', {
 
   disconnectBot: (username) => ipcRenderer.send('disconnect-bot', username),
 
-  // Envanter Yönetimi
-  moveItem: (username, source, dest) => ipcRenderer.send('move-item', { username, source, dest }),
-  equipItem: (username, source, dest) => ipcRenderer.send('equip-item', { username, source, dest }),
-  unequipItem: (username, dest) => ipcRenderer.send('unequip-item', { username, dest }),
+  getInventory: (username) => ipcRenderer.invoke('get-inventory', username),
+
+  moveItem: (options) => ipcRenderer.send('move-item', options),
+
+  tossItemStack: (options) => ipcRenderer.send('toss-item-stack', options),
+  clearInventory: (username) => ipcRenderer.send('clear-inventory', username),
+
+  setActiveHotbar: (options) => ipcRenderer.send('set-active-hotbar', options),
 
   // Depolama
   loadAccounts: () => ipcRenderer.invoke('load-accounts'),

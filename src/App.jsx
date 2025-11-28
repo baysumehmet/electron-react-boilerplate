@@ -82,7 +82,13 @@ function App() {
 
   return (
     <div className="bg-gray-900 text-white h-screen flex font-sans">
-      <Sidebar accounts={accounts} activeAccount={activeAccount} onAccountSelect={(username) => { setView('dashboard'); setActiveAccount(username); }} onAddAccount={() => setView('add-account')} onGoHome={() => setView('server-settings')} />
+      <Sidebar 
+        accounts={accounts} 
+        activeAccount={activeAccount} 
+        onAccountSelect={(username) => { setView('dashboard'); setActiveAccount(username); }} 
+        onAddAccount={() => setView('add-account')} 
+        onGoHome={() => setView('server-settings')}
+      />
       <div className="flex-1 flex flex-col">{renderView()}</div>
     </div>
   );

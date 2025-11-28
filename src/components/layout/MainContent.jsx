@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import SettingsView from '../views/SettingsView.jsx';
+import InventoryView from '../views/InventoryView.jsx';
 
 
 // --- CHAT VE ANTI-AFK (Değişiklik yok) ---
@@ -20,11 +21,21 @@ const AntiAfkView = ({ activeBotUsername }) => {
 
 // --- ANA YAPI ---
 
-const TABS = ['Sohbet', 'Anti-AFK', 'Ayarlar'];
+const BASE_TABS = ['Sohbet', 'Anti-AFK', 'Ayarlar'];
+const CONNECTED_TABS = ['Sohbet', 'Envanter', 'Anti-AFK', 'Ayarlar'];
 
 const MainContent = ({ account, events, isConnected, onConnect, onDisconnect, onDelete, onSaveSettings }) => {
+    const TABS = isConnected ? CONNECTED_TABS : BASE_TABS;
     const [activeTab, setActiveTab] = useState(TABS[0]);
-    useEffect(() => { setActiveTab(TABS[0]); }, [account]);
+
+    useEffect(() => {
+        // Hesap değiştirildiğinde veya bağlantı kesildiğinde sekmeyi sıfırla/ayarla
+        if (!isConnected && activeTab === 'Envanter') {
+            setActiveTab('Sohbet');
+        } else if (TABS.indexOf(activeTab) === -1) {
+            setActiveTab(TABS[0]);
+        }
+    }, [account, isConnected]);
 
     if (!account) return <main className="flex-1 p-4 flex items-center justify-center text-gray-400">Lütfen soldaki menüden bir hesap seçin veya yeni bir hesap ekleyin.</main>;
 
@@ -49,6 +60,7 @@ const MainContent = ({ account, events, isConnected, onConnect, onDisconnect, on
                 {activeTab === 'Sohbet' && <ChatView events={events} activeBotUsername={account.username} />}
                 {activeTab === 'Anti-AFK' && <AntiAfkView activeBotUsername={account.username} />}
                 {activeTab === 'Ayarlar' && <SettingsView account={account} onSaveSettings={onSaveSettings} onDelete={onDelete} />}
+                {activeTab === 'Envanter' && isConnected && <InventoryView username={account.username} />}
             </div>
         </main>
     );

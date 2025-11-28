@@ -63,6 +63,26 @@ app.whenReady().then(() => {
       botManager.disconnectBot(username);
     });
 
+  ipcMain.handle('get-inventory', (event, username) => {
+    return botManager.getInventory(username);
+  });
+
+  ipcMain.on('move-item', (event, options) => {
+    botManager.moveItem(options);
+  });
+
+  ipcMain.on('toss-item-stack', (event, options) => {
+    botManager.tossItemStack(options);
+  });
+
+  ipcMain.on('clear-inventory', (event, username) => {
+    botManager.clearInventory(username);
+  });
+
+  ipcMain.on('set-active-hotbar', (event, options) => {
+    botManager.setActiveHotbar(options);
+  });
+
   console.log('--- IPC dinleyicileri ayarlandı. Pencere oluşturuluyor... ---');
   
   createWindow();

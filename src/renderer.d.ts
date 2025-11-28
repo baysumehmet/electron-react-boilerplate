@@ -1,7 +1,6 @@
 // src/renderer.d.ts
 export interface IElectronAPI {
   connectBot: (options: object) => void;
-  getInventory: (username: string) => Promise<object[] | null>;
   startAntiAFK: (username: string, interval: number) => void;
   stopAntiAFK: (username: string) => void;
   sendChatMessage: (username: string, message: string) => void;
