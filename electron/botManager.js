@@ -1,5 +1,7 @@
 // electron/botManager.js
 const mineflayer = require('mineflayer');
+const { Vec3 } = require('vec3');
+const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
 
 // Prevent memory leaks and state loss during hot-reloads in development
 if (!global.managedBots) {
@@ -41,6 +43,19 @@ function connectBot(options, webContents) {
   bots[options.username] = bot;
   bot.webContents = webContents; // Store webContents for later use
 
+  // Load plugins
+  bot.loadPlugin(pathfinder);
+
+  bot.on('goal_reached', (goal) => {
+    console.log(`[${bot.username}] Hedefe ulaşıldı.`);
+    webContents.send('bot-event', { type: 'goal_reached', username: bot.username, message: 'Hedefe ulaşıldı.' });
+  });
+
+  bot.on('path_update', (results) => {
+      // Bu olay çok sık tetiklenebilir, bu yüzden sadece hata ayıklama için loglayabilir veya arayüze daha az sıklıkla gönderebilirsiniz.
+      // console.log(`[${bot.username}] Yol güncellendi:`, results.status);
+  });
+
   // Add event listeners after ensuring the bot is fully initialized
   bot.on('login', () => {
     console.log(`${bot.username} sunucuya giriş yaptı.`);
@@ -48,6 +63,10 @@ function connectBot(options, webContents) {
   });
   bot.on('spawn', () => {
     console.log(`${bot.username} oyuna spawn oldu.`);
+    // Setup pathfinder
+    const mcData = require('minecraft-data')(bot.version);
+    const defaultMove = new Movements(bot, mcData);
+    bot.pathfinder.setMovements(defaultMove);
     webContents.send('bot-event', { type: 'spawn', username: bot.username, message: 'Oyuna spawn oldu.' });
     webContents.send('bot-event', { type: 'health', username: bot.username, data: { health: bot.health, food: bot.food } });
     // Send initial hotbar state
@@ -375,6 +394,133 @@ async function depositItem({ username, item }) {
     }
 }
 
+async function breakBlockAt(username, { x, y, z }) {
+    return new Promise(async (resolve, reject) => {
+        const bot = bots[username];
+        if (!bot) return reject(new Error("Bot bağlı değil."));
+
+        const numX = Math.floor(parseFloat(x));
+        const numY = Math.floor(parseFloat(y));
+        const numZ = Math.floor(parseFloat(z));
+
+        if (isNaN(numX) || isNaN(numY) || isNaN(numZ)) {
+            const msg = `Blok kırmak için geçersiz koordinatlar: X=${x}, Y=${y}, Z=${z}`;
+            console.error(`[${username}] ${msg}`);
+            if (bot.webContents) {
+                bot.webContents.send('bot-event', { type: 'error', username, message: msg });
+            }
+            return reject(new Error(msg));
+        }
+
+        const blockToBreak = bot.blockAt(new Vec3(numX, numY, numZ));
+
+        if (!blockToBreak) {
+            const msg = `Kırılacak blok bulunamadı: ${numX}, ${numY}, ${numZ}`;
+            console.log(`[${username}] ${msg}`);
+            bot.webContents.send('bot-event', { type: 'error', username, message: msg });
+            return reject(new Error(msg));
+        }
+
+        try {
+            console.log(`[${username}] ${blockToBreak.name} bloğu kırılıyor...`);
+            await bot.dig(blockToBreak);
+            console.log(`[${username}] Blok başarıyla kırıldı.`);
+            bot.webContents.send('bot-event', { type: 'info', username, message: `${blockToBreak.name} bloğu kırıldı.` });
+            resolve();
+        } catch (err) {
+            const msg = `Blok kırılamadı: ${err.message}`;
+            console.error(`[${username}] ${msg}`);
+            bot.webContents.send('bot-event', { type: 'error', username, message: msg });
+            reject(err);
+        }
+    });
+}
+
+async function openChestAt(username, { x, y, z }) {
+    return new Promise(async (resolve, reject) => {
+        const bot = bots[username];
+        if (!bot) return reject(new Error("Bot bağlı değil."));
+
+        const numX = Math.floor(parseFloat(x));
+        const numY = Math.floor(parseFloat(y));
+        const numZ = Math.floor(parseFloat(z));
+
+        if (isNaN(numX) || isNaN(numY) || isNaN(numZ)) {
+            return reject(new Error(`Geçersiz sandık koordinatları: ${x},${y},${z}`));
+        }
+
+        try {
+            const chestBlock = bot.blockAt(new Vec3(numX, numY, numZ));
+            if (chestBlock && chestBlock.name === 'chest') {
+                bot.activeChest = await bot.openChest(chestBlock);
+                resolve();
+            } else {
+                reject(new Error(`Koordinatta sandık bulunamadı: ${numX},${numY},${numZ}`));
+            }
+        } catch (err) {
+            reject(err);
+        }
+    });
+}
+
+async function moveToCoordinates(username, { x, y, z }) {
+    return new Promise((resolve, reject) => {
+        const bot = bots[username];
+        if (!bot || !bot.pathfinder) {
+            const msg = `Bot veya pathfinder hareket için uygun değil.`;
+            console.log(`[${username}] ${msg}`);
+            if (bot && bot.webContents) {
+                bot.webContents.send('bot-event', { type: 'error', username, message: msg });
+            }
+            return reject(new Error(msg));
+        }
+
+        const numX = parseFloat(x);
+        const numY = parseFloat(y);
+        const numZ = parseFloat(z);
+
+        if (isNaN(numX) || isNaN(numY) || isNaN(numZ)) {
+            const msg = `Geçersiz koordinatlar: X=${x}, Y=${y}, Z=${z}`;
+            console.error(`[${username}] ${msg}`);
+            if (bot.webContents) {
+                bot.webContents.send('bot-event', { type: 'error', username, message: msg });
+            }
+            return reject(new Error(msg));
+        }
+
+        const goal = new goals.GoalBlock(numX, numY, numZ);
+        bot.pathfinder.setGoal(goal, true);
+        console.log(`[${username}] Koordinatlara gidiliyor: X=${numX}, Y=${numY}, Z=${numZ}`);
+
+        const timeout = setTimeout(() => {
+            clearInterval(checkInterval);
+            bot.pathfinder.stop();
+            reject(new Error('Hedefe ulaşma zaman aşımına uğradı (30s).'));
+        }, 30000); // 30 saniye timeout
+
+        const checkInterval = setInterval(() => {
+            if (!bot.pathfinder.isMoving()) {
+                const botPos = bot.entity.position;
+                const distance = botPos.distanceTo(new Vec3(numX, numY, numZ));
+                
+                // Hedefe yeterince yakınsa (1.5 blok) ve artık hareket etmiyorsa, görevi tamamlanmış say.
+                if (distance <= 1.5) {
+                    console.log(`[${username}] Hedefe ulaşıldı (Mesafe: ${distance.toFixed(2)}).`);
+                    clearTimeout(timeout);
+                    clearInterval(checkInterval);
+                    resolve();
+                } else {
+                    // Hareket etmiyor ama hedeften uzakta, muhtemelen takıldı.
+                    console.log(`[${username}] Hedefe ulaşılamadı, bot takılmış olabilir (Mesafe: ${distance.toFixed(2)}).`);
+                    clearTimeout(timeout);
+                    clearInterval(checkInterval);
+                    reject(new Error('Hedefe ulaşılamadı, bot takıldı.'));
+                }
+            }
+        }, 500); // Her 500ms'de bir kontrol et
+    });
+}
+
 async function withdrawAll(username) {
     const bot = bots[username];
     const chest = bot.activeChest;
@@ -427,6 +573,9 @@ module.exports = {
   clearInventory,
   setActiveHotbar,
   openNearestChest,
+  openChestAt,
+  breakBlockAt,
+  moveToCoordinates,
   closeWindow,
   depositItem,
   withdrawItem,

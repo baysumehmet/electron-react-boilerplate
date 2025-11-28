@@ -29,6 +29,7 @@
   },
   "dependencies": {
     "mineflayer": "^4.33.0",
+    "mineflayer-pathfinder": "^2.4.5",
     "minecraft-data": "^3.6.0",
     "prismarine-auth": "^2.7.0",
     "react": "^18.3.1",

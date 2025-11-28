@@ -22,6 +22,9 @@ contextBridge.exposeInMainWorld('api', {
   setActiveHotbar: (options) => ipcRenderer.send('set-active-hotbar', options),
 
   openNearestChest: (username) => ipcRenderer.send('open-nearest-chest', username),
+  openChestAt: (username, x, y, z) => ipcRenderer.invoke('open-chest-at', { username, x, y, z }),
+  breakBlock: (username, x, y, z) => ipcRenderer.invoke('break-block', { username, x, y, z }),
+  moveTo: (username, x, y, z) => ipcRenderer.invoke('move-to', { username, x, y, z }),
 
   closeWindow: (username) => ipcRenderer.send('close-window', username),
 

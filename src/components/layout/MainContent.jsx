@@ -4,6 +4,7 @@ import InventoryView from '../views/InventoryView.jsx';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import ChestView from '../views/ChestView.jsx';
+import ScriptingView from '../views/ScriptingView.jsx';
 
 
 // --- CHAT VE ANTI-AFK (Değişiklik yok) ---
@@ -25,15 +26,16 @@ const AntiAfkView = ({ activeBotUsername }) => {
 // --- ANA YAPI ---
 
 const BASE_TABS = ['Sohbet', 'Anti-AFK', 'Ayarlar'];
-const CONNECTED_TABS = ['Sohbet', 'Envanter', 'Anti-AFK', 'Ayarlar'];
+const CONNECTED_TABS = ['Sohbet', 'Envanter', 'Scripting', 'Anti-AFK', 'Ayarlar'];
 
 const MainContent = ({ account, events, isConnected, chest, onConnect, onDisconnect, onDelete, onSaveSettings }) => {
     const TABS = isConnected ? CONNECTED_TABS : BASE_TABS;
     const [activeTab, setActiveTab] = useState(TABS[0]);
+    const [script, setScript] = useState([]);
 
     useEffect(() => {
         // Hesap değiştirildiğinde veya bağlantı kesildiğinde sekmeyi sıfırla/ayarla
-        if (!isConnected && activeTab === 'Envanter') {
+        if (!isConnected && (activeTab === 'Envanter' || activeTab === 'Scripting')) {
             setActiveTab('Sohbet');
         } else if (TABS.indexOf(activeTab) === -1) {
             setActiveTab(TABS[0]);
@@ -65,6 +67,7 @@ const MainContent = ({ account, events, isConnected, chest, onConnect, onDisconn
                 {activeTab === 'Sohbet' && <ChatView events={events} activeBotUsername={account.username} />}
                 {activeTab === 'Anti-AFK' && <AntiAfkView activeBotUsername={account.username} />}
                 {activeTab === 'Ayarlar' && <SettingsView account={account} onSaveSettings={onSaveSettings} onDelete={onDelete} />}
+                {activeTab === 'Scripting' && isConnected && <ScriptingView username={account.username} script={script} setScript={setScript} />}
                 {isInventoryTab && (
                     <DndProvider backend={HTML5Backend}>
                         <InventoryView username={account.username} chest={chest} />
