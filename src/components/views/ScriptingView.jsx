@@ -77,6 +77,12 @@ const OpenNearestChestCommand = ({ onRemove, command }) => (
 
 const ScriptingView = ({ username, script, setScript }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [executionState, setExecutionState] = useState({
+        isRunning: false,
+        currentCommandId: null,
+        completedCommandIds: new Set(),
+        errorCommandId: null,
+    });
 
     const addCommand = (command) => {
         setScript(prev => [...prev, command]);
@@ -125,9 +131,18 @@ const ScriptingView = ({ username, script, setScript }) => {
     };
 
     const handleRunScript = async () => {
+        setExecutionState({
+            isRunning: true,
+            currentCommandId: null,
+            completedCommandIds: new Set(),
+            errorCommandId: null,
+        });
+
         console.log("Çalıştırılan script:", script);
         try {
             for (const command of script) {
+                setExecutionState(prev => ({ ...prev, currentCommandId: command.id }));
+
                 if (command.type === 'move') {
                     const { x, y, z } = command.params;
                     console.log(`Hareket ediliyor: ${x}, ${y}, ${z}`);
@@ -153,12 +168,27 @@ const ScriptingView = ({ username, script, setScript }) => {
                     console.log(`Koordinattaki sandık açılıyor: ${x}, ${y}, ${z}`);
                     await window.api.openChestAt(username, String(x), String(y), String(z));
                 }
+
+                setExecutionState(prev => ({
+                    ...prev,
+                    completedCommandIds: new Set(prev.completedCommandIds).add(command.id),
+                }));
             }
+            console.log("Script tamamlandı.");
         } catch (error) {
             console.error("Script çalıştırılırken bir hata oluştu:", error);
-            // Arayüzde bir bildirim gösterebilirsiniz.
+            setExecutionState(prev => ({ ...prev, errorCommandId: prev.currentCommandId }));
+        } finally {
+            // Script bittiğinde veya hata oluştuğunda, 2 saniye sonra durumu sıfırla
+            setTimeout(() => {
+                setExecutionState({
+                    isRunning: false,
+                    currentCommandId: null,
+                    completedCommandIds: new Set(),
+                    errorCommandId: null,
+                });
+            }, 2000);
         }
-        console.log("Script tamamlandı.");
     };
 
     const renderCommand = (command) => {
@@ -180,6 +210,31 @@ const ScriptingView = ({ username, script, setScript }) => {
         }
     };
 
+    const getCommandWrapper = (command) => {
+        const { isRunning, currentCommandId, completedCommandIds, errorCommandId } = executionState;
+        let borderColor = 'border-transparent'; // Varsayılan
+
+        if (isRunning) {
+            if (completedCommandIds.has(command.id)) {
+                borderColor = 'border-blue-500'; // Tamamlandı
+            } else if (currentCommandId === command.id) {
+                borderColor = 'border-green-500'; // Çalışıyor
+            } else {
+                borderColor = 'border-gray-600'; // Bekliyor
+            }
+
+            if (errorCommandId === command.id) {
+                borderColor = 'border-red-500'; // Hata
+            }
+        }
+
+        return (
+            <div key={command.id} className={`border-2 rounded-lg transition-colors duration-300 ${borderColor}`}>
+                {renderCommand(command)}
+            </div>
+        );
+    };
+
     return (
         <div className="p-4 bg-gray-800 rounded-lg text-white">
             <AddCommandModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onAddCommand={addCommand} />
@@ -192,14 +247,14 @@ const ScriptingView = ({ username, script, setScript }) => {
                         İçe Aktar
                         <input type="file" accept=".json" className="hidden" onChange={handleImportScript} />
                     </label>
-                    <button onClick={handleRunScript} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">
+                    <button onClick={handleRunScript} disabled={executionState.isRunning} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded disabled:bg-gray-500 disabled:cursor-not-allowed">
                         Script'i Çalıştır
                     </button>
                 </div>
             </div>
 
             <div className="space-y-2">
-                {script.map(renderCommand)}
+                {script.map(getCommandWrapper)}
                  <button onClick={() => setIsModalOpen(true)} className="w-full p-3 bg-gray-700 hover:bg-gray-600 rounded-lg text-2xl font-bold text-gray-400">
                     +
                 </button>
