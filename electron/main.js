@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const botManager = require('./botManager');
 const storageManager = require('./storageManager');
+const mineflayer = require('mineflayer');
 
 const isDev = !app.isPackaged;
 
@@ -47,6 +48,7 @@ app.whenReady().then(() => {
   ipcMain.on('stop-anti-afk', (event, username) => { botManager.stopAntiAFK(username); });
   ipcMain.on('send-chat', (event, { username, message }) => { botManager.sendChatMessage(username, message); });
   ipcMain.handle('load-accounts', () => { return storageManager.loadAccounts(); });
+  ipcMain.handle('get-supported-versions', () => { return mineflayer.supportedVersions; });
   ipcMain.handle('open-chest-at', (event, { username, x, y, z }) => { return botManager.openChestAt(username, { x, y, z }); });
   ipcMain.handle('move-to', (event, { username, x, y, z }) => { return botManager.moveToCoordinates(username, { x, y, z }); });
   ipcMain.handle('break-block', (event, { username, x, y, z }) => { return botManager.breakBlockAt(username, { x, y, z }); });

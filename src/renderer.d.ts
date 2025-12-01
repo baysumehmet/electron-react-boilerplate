@@ -9,6 +9,7 @@ export interface IElectronAPI {
   saveAccounts: (accounts: any[]) => void;
   loadServerInfo: () => Promise<any | null>;
   saveServerInfo: (serverInfo: any) => void;
+  getSupportedVersions: () => Promise<string[]>;
   /**
    * Registers a listener for bot events and returns a function to unsubscribe.
    */

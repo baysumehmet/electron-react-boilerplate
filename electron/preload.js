@@ -40,6 +40,8 @@ contextBridge.exposeInMainWorld('api', {
   loadServerInfo: () => ipcRenderer.invoke('load-server-info'),
   saveServerInfo: (serverInfo) => ipcRenderer.send('save-server-info', serverInfo),
 
+  getSupportedVersions: () => ipcRenderer.invoke('get-supported-versions'),
+
   onBotEvent: (callback) => {
     console.log('PRELOAD: onBotEvent was called. Subscribing to bot-event.');
     const subscription = (event, ...args) => {

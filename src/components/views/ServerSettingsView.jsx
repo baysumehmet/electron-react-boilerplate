@@ -1,20 +1,32 @@
 import React, { useState, useEffect } from 'react';
 
+// Hardcode the list of versions as requested by the user.
+const SUPPORTED_VERSIONS = [
+  '1.8', '1.9', '1.10', '1.11', '1.12', '1.13', '1.14', '1.15', '1.16', 
+  '1.17', '1.18', '1.19', '1.20', '1.21.8'
+];
+
 const ServerSettingsView = ({ initialServerInfo, onSave }) => {
   const [host, setHost] = useState('');
-  const [port, setPort] = useState(''); // Default to empty string
+  const [port, setPort] = useState('');
+  const [version, setVersion] = useState('');
   const [saveState, setSaveState] = useState('idle');
 
+  // Set initial form values from props
   useEffect(() => {
     if (initialServerInfo) {
       setHost(initialServerInfo.host || '');
-      setPort(initialServerInfo.port || ''); // Can be empty
+      setPort(initialServerInfo.port || '');
+      setVersion(initialServerInfo.version || ''); 
     }
   }, [initialServerInfo]);
 
   const handleSave = () => {
-    // Only pass the port if it's not an empty string.
-    const serverInfoToSave = { host, port: port ? Number(port) : undefined };
+    const serverInfoToSave = { 
+      host, 
+      port: port ? Number(port) : undefined,
+      version: version || false
+    };
     onSave(serverInfoToSave);
     setSaveState('saving');
     setTimeout(() => setSaveState('idle'), 2000);
@@ -22,7 +34,6 @@ const ServerSettingsView = ({ initialServerInfo, onSave }) => {
   
   const handlePortChange = (e) => {
     const value = e.target.value;
-    // Allow only numbers
     if (/^\d*$/.test(value)) {
       setPort(value);
     }
@@ -32,6 +43,7 @@ const ServerSettingsView = ({ initialServerInfo, onSave }) => {
     <div className="p-8">
       <h2 className="text-2xl font-bold mb-6">Sunucu Ayarları</h2>
       <div className="space-y-6 max-w-lg">
+        {/* Host and Port inputs remain the same */}
         <div>
           <label htmlFor="server-host" className="block text-sm font-medium text-gray-300 mb-1">
             Sunucu Adresi
@@ -51,8 +63,8 @@ const ServerSettingsView = ({ initialServerInfo, onSave }) => {
               Port (isteğe bağlı)
             </label>
             <input
-              type="text" // Use text to allow empty string
-              pattern="\d*" // Suggest numeric input to browsers
+              type="text"
+              pattern="\d*"
               id="server-port"
               value={port}
               onChange={handlePortChange}
@@ -62,6 +74,26 @@ const ServerSettingsView = ({ initialServerInfo, onSave }) => {
              <p className="text-xs text-gray-400 mt-2">Boş bırakılırsa varsayılan (25565) kullanılır.</p>
         </div>
 
+        {/* Version dropdown using the hardcoded list */}
+        <div>
+            <label htmlFor="server-version" className="block text-sm font-medium text-gray-300 mb-1">
+              Sürüm (isteğe bağlı)
+            </label>
+            <select
+              id="server-version"
+              value={version}
+              onChange={e => setVersion(e.target.value)}
+              className="bg-gray-700 border border-gray-600 rounded p-2 w-full text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            >
+              <option value="">Otomatik Algıla</option>
+              {SUPPORTED_VERSIONS.map(v => (
+                <option key={v} value={v}>{v}</option>
+              ))}
+            </select>
+             <p className="text-xs text-gray-400 mt-2">Boş bırakılırsa en uygun sürüm otomatik olarak denenir.</p>
+        </div>
+
+        {/* Save button remains the same */}
         <div className="pt-2">
           <button 
             onClick={handleSave} 
@@ -79,4 +111,5 @@ const ServerSettingsView = ({ initialServerInfo, onSave }) => {
     </div>
   );
 };
+
 export default ServerSettingsView;

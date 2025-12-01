@@ -23,6 +23,15 @@ function connectBot(options, webContents) {
   const host = options.host;
   const port = options.port || 25565;
 
+  // Log the connection options to prove the version is being used
+  console.log(`[${options.username}] Connecting with options:`, {
+    host: host,
+    port: port,
+    username: options.username,
+    auth: options.auth,
+    version: options.version || 'auto'
+  });
+
   // Create the bot instance directly
   const bot = mineflayer.createBot({
     host: host,
@@ -47,7 +56,7 @@ function connectBot(options, webContents) {
   bot.loadPlugin(pathfinder);
 
   bot.on('goal_reached', (goal) => {
-    console.log(`[${bot.username}] Hedefe ulaşıldı.`);
+    //console.log(`[${bot.username}] Hedefe ulaşıldı.`);
     webContents.send('bot-event', { type: 'goal_reached', username: bot.username, message: 'Hedefe ulaşıldı.' });
   });
 
@@ -67,6 +76,7 @@ function connectBot(options, webContents) {
     const mcData = require('minecraft-data')(bot.version);
     const defaultMove = new Movements(bot, mcData);
     bot.pathfinder.setMovements(defaultMove);
+
     webContents.send('bot-event', { type: 'spawn', username: bot.username, message: 'Oyuna spawn oldu.' });
     webContents.send('bot-event', { type: 'health', username: bot.username, data: { health: bot.health, food: bot.food } });
     // Send initial hotbar state
@@ -80,7 +90,7 @@ function connectBot(options, webContents) {
       commands.forEach((command, index) => {
         setTimeout(() => {
           if (bots[bot.username]) {
-            console.log(`'${bot.username}' otomatik komut gönderiyor: ${command}`);
+            //console.log(`'${bot.username}' otomatik komut gönderiyor: ${command}`);
             bot.chat(command);
           }
         }, index * delay);
@@ -89,7 +99,7 @@ function connectBot(options, webContents) {
 
     // Envanter güncellemelerini dinle
     bot.inventory.on('updateSlot', (slot, oldItem, newItem) => {
-      console.log(`[${bot.username}] Envanter güncellendi, slot: ${slot}`);
+      //console.log(`[${bot.username}] Envanter güncellendi, slot: ${slot}`);
       webContents.send('bot-event', {
         type: 'inventory',
         username: bot.username,
@@ -101,9 +111,47 @@ function connectBot(options, webContents) {
   bot.on('health', () => {
     webContents.send('bot-event', { type: 'health', username: bot.username, data: { health: bot.health, food: bot.food } });
   });
-  bot.on('chat', (username, message) => {
-    console.log(`[Sohbet] <${username}> ${message}`);
-    webContents.send('bot-event', { type: 'chat', username: bot.username, data: { sender: username, message: message } });
+  bot.on('message', (jsonMsg, position) => {
+    // This is the new, rewritten chat handler.
+    // It processes all chat/system messages and uses a list of prioritized
+    // regular expressions to find the sender and message.
+    if (position !== 'chat' && position !== 'system') return;
+
+    const fullMessage = jsonMsg.toString();
+    if (!fullMessage.trim()) return; // Ignore empty messages
+
+    // This list is ordered from most specific to most general.
+    const patterns = [
+        // User's server: |0| Rank Nickname >> message
+        { regex: /^\|\d\|\s+(.+?)\s+>>\s+(.*)/ },
+        // Ranked, angle brackets: [Admin] <Steve> hi
+        { regex: /^\[[^\]]+\] <(.+?)> (.*)/ },
+        // Simple angle brackets: <Steve> hi
+        { regex: /^<(.+?)> (.*)/ },
+        // Ranked, colon: [Mod] Notch: hi
+        { regex: /^\[[^\]]+\] ([\w\d_]{3,16}): (.*)/ },
+        // Simple, colon: Notch: hi
+        { regex: /^([\w\d_]{3,16}): (.*)/ }
+    ];
+
+    let sender = 'Mesaj';
+    let message = fullMessage;
+
+    for (const p of patterns) {
+        const match = fullMessage.match(p.regex);
+        if (match && match[1] && match[2]) {
+            sender = match[1];
+            message = match[2];
+            break; // Stop after the first successful match
+        }
+    }
+
+    // Don't show messages sent by the bot itself.
+    // Added checks for both sender and bot.username to prevent crash.
+    if (sender && typeof sender === 'string' && bot.username && sender.toLowerCase() === bot.username.toLowerCase()) return;
+
+    console.log(`[Sohbet Alındı] <${sender}> ${message}`);
+    webContents.send('bot-event', { type: 'chat', username: bot.username, data: { sender, message } });
   });
   bot.on('error', (err) => {
     console.error(`${bot.username} bir hatayla karşılaştı:`, err);
@@ -122,63 +170,75 @@ function connectBot(options, webContents) {
   });
 
   bot.on('windowOpen', (window) => {
-    const titleStr = window.title.toString();
-    console.log(`[${bot.username}] Pencere açıldı: ${titleStr}`);
-    try {
-        // Mineflayer window titles can be ChatMessage objects (JSON strings)
-        const titleJson = JSON.parse(titleStr);
-        // Check for various chest types
-        if (titleJson.translate && titleJson.translate.startsWith('container.chest')) {
-            // Send initial state
-            webContents.send('bot-event', {
-                type: 'chest-open',
-                username: bot.username,
-                data: {
-                    title: titleJson.translate,
-                    slots: window.slots
-                }
-            });
-            // Listen for changes within this specific window
-            window.on('updateSlot', (slot, oldItem, newItem) => {
-                console.log(`[${bot.username}] Sandık güncellendi, slot: ${slot}`);
-                webContents.send('bot-event', {
-                    type: 'chest-open', // Re-send the open event with updated slots
-                    username: bot.username,
-                    data: {
-                        title: titleJson.translate,
-                        slots: [...window.slots] // Send a copy
-                    }
-                });
-            });
+    let title = 'Unknown Title';
+
+    // Handle different title formats (string, JSON string, object)
+    if (typeof window.title === 'string') {
+        try {
+            const parsed = JSON.parse(window.title);
+            // It's a JSON string, extract the meaningful part
+            if (parsed.translate) {
+                title = parsed.translate;
+            } else {
+                title = window.title; // Use as is if no translate key
+            }
+        } catch (e) {
+            // It's just a plain string
+            title = window.title;
         }
-    } catch(e) {
-        // Title was not JSON, maybe a simple string. For future use.
-        if (titleStr.includes('Chest')) {
+    } else if (typeof window.title === 'object' && window.title !== null) {
+        // It's an object, extract the meaningful part from various known structures
+        if (window.title.value && window.title.value.translate && window.title.value.translate.value) {
+            // Complex object: { value: { translate: { value: 'container.chest' } } }
+            title = window.title.value.translate.value;
+        } else if (window.title.translate) {
+            // Simpler object: { translate: 'container.chest' }
+            title = window.title.translate;
+        } else {
+            // Fallback for other object formats
+            title = JSON.stringify(window.title);
+        }
+    }
+    
+    // Define a list of container types that the UI should treat as chests
+    const containerTypes = [
+        'container.chest',
+        'container.barrel',
+        'container.shulkerBox',
+        'container.dispenser',
+        'container.dropper',
+        'container.hopper'
+    ];
+
+    // Check if the window is a known container type or if the title includes "chest" as a fallback
+    const isContainer = containerTypes.some(type => title.startsWith(type)) || title.toLowerCase().includes('chest');
+    
+    if (isContainer) {
+        console.log(`[${bot.username}] Konteyner açıldı: ${title}`);
+        const sendChestUpdate = () => {
              webContents.send('bot-event', {
                 type: 'chest-open',
                 username: bot.username,
                 data: {
-                    title: titleStr,
-                    slots: [...window.slots] // Send a copy
+                    title: title,
+                    slots: [...window.slots]
                 }
             });
-            // Also add listener here for non-json titles
-            window.on('updateSlot', (slot, oldItem, newItem) => {
-                 webContents.send('bot-event', {
-                    type: 'chest-open',
-                    username: bot.username,
-                    data: {
-                        title: titleStr,
-                        slots: [...window.slots] // Send a copy
-                    }
-                });
-            });
-        }
+        };
+
+        // Send initial state
+        sendChestUpdate();
+
+        // Listen for changes within this specific window
+        window.on('updateSlot', (slot, oldItem, newItem) => {
+            //console.log(`[${bot.username}] Sandık güncellendi, slot: ${slot}`);
+            sendChestUpdate();
+        });
     }
   });
 
   bot.on('windowClose', (window) => {
-    console.log(`[${bot.username}] Pencere kapandı.`);
+    //console.log(`[${bot.username}] Pencere kapandı.`);
     bot.activeChest = null; // Clear the reference
     webContents.send('bot-event', { type: 'chest-close', username: bot.username });
   });
@@ -191,22 +251,32 @@ async function openNearestChest(username) {
     if (!bot) return;
 
     try {
-        const chestBlock = bot.findBlock({
-            matching: bot.registry.blocksByName.chest.id,
+        // Dynamically find IDs for all types of chests, shulker boxes, and barrels.
+        const containerNames = Object.keys(bot.registry.blocksByName).filter(name =>
+            name.includes('chest') ||
+            name.includes('shulker_box') ||
+            name === 'barrel'
+        );
+        const containerIds = containerNames.map(name => bot.registry.blocksByName[name].id);
+
+        const containerBlock = bot.findBlock({
+            matching: containerIds,
             maxDistance: 16,
         });
 
-        if (chestBlock) {
-            console.log(`[${username}] En yakın sandık bulundu:`, chestBlock.position);
-            // Open the chest and store the returned Chest object
-            bot.activeChest = await bot.openChest(chestBlock);
+        if (containerBlock) {
+            //console.log(`[${username}] En yakın konteyner (${containerBlock.name}) bulundu:`, containerBlock.position);
+            // openContainer is a generic function for chests, barrels, shulkers etc.
+            // It returns a Window object, which is what the rest of the code expects.
+            bot.activeChest = await bot.openContainer(containerBlock);
         } else {
-            bot.webContents.send('bot-event', { type: 'error', username, message: 'Yakında sandık bulunamadı.' });
-            console.log(`[${username}] Yakında sandık bulunamadı.`);
+            const msg = 'Yakında açılabilir konteyner (sandık, varil, vb.) bulunamadı.';
+            bot.webContents.send('bot-event', { type: 'error', username, message: msg });
+            //console.log(`[${username}] ${msg}`);
         }
     } catch (err) {
-        const errorMessage = `Sandık açılamadı: ${err.message}`;
-        console.error(`[${username}] Sandık açılırken hata:`, err.message);
+        const errorMessage = `Konteyner açılamadı: ${err.message}`;
+        console.error(`[${username}] Konteyner açılırken hata:`, err.message);
         bot.webContents.send('bot-event', { type: 'inventory-error', username, message: errorMessage });
     }
 }
@@ -221,7 +291,7 @@ function startAntiAFK(username, intervalSeconds = 15) {
     clearInterval(afkTimers[username]);
   }
 
-  console.log(`${username} için Anti-AFK başlatıldı (controlState). Interval: ${intervalSeconds} saniye.`);
+  //console.log(`${username} için Anti-AFK başlatıldı (controlState). Interval: ${intervalSeconds} saniye.`);
   
   afkTimers[username] = setInterval(() => {
     if (bot && bot.entity) {
@@ -231,7 +301,7 @@ function startAntiAFK(username, intervalSeconds = 15) {
         if(bot) bot.controlState.jump = false;
       }, 200); // 200ms basılı tut
       
-      console.log(`${username} zıpladı (Anti-AFK - controlState).`);
+      //console.log(`${username} zıpladı (Anti-AFK - controlState).`);
     }
   }, intervalSeconds * 1000);
 }
@@ -240,7 +310,7 @@ function stopAntiAFK(username) {
   if (afkTimers[username]) {
     clearInterval(afkTimers[username]);
     delete afkTimers[username];
-    console.log(`${username} için Anti-AFK durduruldu.`);
+    //console.log(`${username} için Anti-AFK durduruldu.`);
   }
 }
 
@@ -283,15 +353,15 @@ async function moveItem({ username, sourceSlot, destinationSlot }) {
   if (!sourceItem) return; // Can't move an empty slot
 
   try {
-    console.log(`[${username}] Moving item from ${sourceSlot} to ${destinationSlot}`);
+    //console.log(`[${username}] Moving item from ${sourceSlot} to ${destinationSlot}`);
     if (destItem) {
-      console.log(`[${username}] Destination not empty. Swapping items.`);
+      //console.log(`[${username}] Destination not empty. Swapping items.`);
       // Perform a swap using three clicks
       await bot.clickWindow(sourceSlot, 0, 0);
       await bot.clickWindow(destinationSlot, 0, 0);
       await bot.clickWindow(sourceSlot, 0, 0);
     } else {
-      console.log(`[${username}] Destination empty. Simple move.`);
+      //console.log(`[${username}] Destination empty. Simple move.`);
       // Perform a simple move
       await bot.clickWindow(sourceSlot, 0, 0);
       await bot.clickWindow(destinationSlot, 0, 0);
@@ -312,9 +382,9 @@ async function tossItemStack({ username, sourceSlot }) {
     const item = bot.inventory.slots[sourceSlot];
     if (item) {
       await bot.tossStack(item);
-      console.log(`[${username}] Eşya atıldı: ${item.name} (Slot: ${sourceSlot})`);
+      //console.log(`[${username}] Eşya atıldı: ${item.name} (Slot: ${sourceSlot})`);
     } else {
-      console.log(`[${username}] Eşya atılamadı: Slot ${sourceSlot} boş.`);
+      //console.log(`[${username}] Eşya atılamadı: Slot ${sourceSlot} boş.`);
     }
   } catch (err) {
     const errorMessage = `Eşya atılamadı: ${err.message}`;
@@ -329,7 +399,7 @@ async function clearInventory(username) {
   const bot = bots[username];
   if (!bot) return;
   
-  console.log(`[${username}] Envanter temizleniyor...`);
+  //console.log(`[${username}] Envanter temizleniyor...`);
   const itemsToToss = bot.inventory.items();
   
   for (const item of itemsToToss) {
@@ -357,7 +427,7 @@ function setActiveHotbar({ username, slot }) {
   if (slot >= 36 && slot <= 44) {
     const hotbarIndex = slot - 36;
     bot.setQuickBarSlot(hotbarIndex);
-    console.log(`[${username}] Aktif hotbar slotu ayarlandı: ${hotbarIndex}`);
+    //console.log(`[${username}] Aktif hotbar slotu ayarlandı: ${hotbarIndex}`);
   }
 }
 
@@ -416,15 +486,15 @@ async function breakBlockAt(username, { x, y, z }) {
 
         if (!blockToBreak) {
             const msg = `Kırılacak blok bulunamadı: ${numX}, ${numY}, ${numZ}`;
-            console.log(`[${username}] ${msg}`);
+            //console.log(`[${username}] ${msg}`);
             bot.webContents.send('bot-event', { type: 'error', username, message: msg });
             return reject(new Error(msg));
         }
 
         try {
-            console.log(`[${username}] ${blockToBreak.name} bloğu kırılıyor...`);
+            //console.log(`[${username}] ${blockToBreak.name} bloğu kırılıyor...`);
             await bot.dig(blockToBreak);
-            console.log(`[${username}] Blok başarıyla kırıldı.`);
+            //console.log(`[${username}] Blok başarıyla kırıldı.`);
             bot.webContents.send('bot-event', { type: 'info', username, message: `${blockToBreak.name} bloğu kırıldı.` });
             resolve();
         } catch (err) {
@@ -451,7 +521,7 @@ async function openChestAt(username, { x, y, z }) {
 
         try {
             const chestBlock = bot.blockAt(new Vec3(numX, numY, numZ));
-            if (chestBlock && chestBlock.name === 'chest') {
+            if (chestBlock && chestBlock.name === 'chest' || chestBlock.name === 'trapped_chest' || chestBlock.name.endsWith('_chest') || chestBlock.name === 'barrel' || chestBlock.name === 'shulker_box'|| chestBlock.name === 'ender_chest') {
                 bot.activeChest = await bot.openChest(chestBlock);
                 resolve();
             } else {
@@ -468,7 +538,7 @@ async function moveToCoordinates(username, { x, y, z }) {
         const bot = bots[username];
         if (!bot || !bot.pathfinder) {
             const msg = `Bot veya pathfinder hareket için uygun değil.`;
-            console.log(`[${username}] ${msg}`);
+            //console.log(`[${username}] ${msg}`);
             if (bot && bot.webContents) {
                 bot.webContents.send('bot-event', { type: 'error', username, message: msg });
             }
@@ -490,7 +560,7 @@ async function moveToCoordinates(username, { x, y, z }) {
 
         const goal = new goals.GoalBlock(numX, numY, numZ);
         bot.pathfinder.setGoal(goal, true);
-        console.log(`[${username}] Koordinatlara gidiliyor: X=${numX}, Y=${numY}, Z=${numZ}`);
+        //console.log(`[${username}] Koordinatlara gidiliyor: X=${numX}, Y=${numY}, Z=${numZ}`);
 
         const timeout = setTimeout(() => {
             clearInterval(checkInterval);
@@ -505,13 +575,13 @@ async function moveToCoordinates(username, { x, y, z }) {
                 
                 // Hedefe yeterince yakınsa (1.5 blok) ve artık hareket etmiyorsa, görevi tamamlanmış say.
                 if (distance <= 1.5) {
-                    console.log(`[${username}] Hedefe ulaşıldı (Mesafe: ${distance.toFixed(2)}).`);
+                    //console.log(`[${username}] Hedefe ulaşıldı (Mesafe: ${distance.toFixed(2)}).`);
                     clearTimeout(timeout);
                     clearInterval(checkInterval);
                     resolve();
                 } else {
                     // Hareket etmiyor ama hedeften uzakta, muhtemelen takıldı.
-                    console.log(`[${username}] Hedefe ulaşılamadı, bot takılmış olabilir (Mesafe: ${distance.toFixed(2)}).`);
+                    //console.log(`[${username}] Hedefe ulaşılamadı, bot takılmış olabilir (Mesafe: ${distance.toFixed(2)}).`);
                     clearTimeout(timeout);
                     clearInterval(checkInterval);
                     reject(new Error('Hedefe ulaşılamadı, bot takıldı.'));
@@ -526,7 +596,7 @@ async function withdrawAll(username) {
     const chest = bot.activeChest;
     if (!bot || !chest) return;
 
-    console.log(`[${username}] Sandıktaki tüm eşyalar alınıyor...`);
+    //console.log(`[${username}] Sandıktaki tüm eşyalar alınıyor...`);
     
     for (const item of chest.containerItems()) {
         try {
@@ -545,7 +615,7 @@ async function depositAll(username) {
     const chest = bot.activeChest;
     if (!bot || !chest) return;
 
-    console.log(`[${username}] Envanterdeki tüm eşyalar sandığa bırakılıyor...`);
+    //console.log(`[${username}] Envanterdeki tüm eşyalar sandığa bırakılıyor...`);
     
     for (const item of bot.inventory.items()) {
         try {
