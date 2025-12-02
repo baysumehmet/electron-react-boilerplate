@@ -39,6 +39,12 @@ contextBridge.exposeInMainWorld('api', {
   saveAccounts: (accounts) => ipcRenderer.send('save-accounts', accounts),
   loadServerInfo: () => ipcRenderer.invoke('load-server-info'),
   saveServerInfo: (serverInfo) => ipcRenderer.send('save-server-info', serverInfo),
+  loadScripts: () => ipcRenderer.invoke('load-scripts'),
+  saveScripts: (scripts) => ipcRenderer.send('save-scripts', scripts),
+
+  // Bot Actions
+  connectBot: (options) => ipcRenderer.send('connect-bot', options),
+  disconnectBot: (username) => ipcRenderer.send('disconnect-bot', username),
 
   getSupportedVersions: () => ipcRenderer.invoke('get-supported-versions'),
 

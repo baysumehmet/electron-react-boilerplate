@@ -29,7 +29,8 @@ function connectBot(options, webContents) {
     port: port,
     username: options.username,
     auth: options.auth,
-    version: options.version || 'auto'
+    version: options.version || 'auto',
+    autoReconnect: options.autoReconnect // Log the reconnect option
   });
 
   // Create the bot instance directly
@@ -37,8 +38,9 @@ function connectBot(options, webContents) {
     host: host,
     port: parseInt(port), // Ensure port is an integer
     username: options.username,
-    auth: options.auth || 'mojang',
-    version: options.version || false,
+    auth: options.auth || 'offline',
+    version: options.version || 'auto',
+    checkTimeoutInterval: 60 * 1000, // Increase timeout to 60s
   });
 
   // Hata Kontrolü: mineflayer.createBot başarısız olursa, bot tanımsız olabilir.
@@ -48,9 +50,15 @@ function connectBot(options, webContents) {
     webContents.send('bot-event', { type: 'error', username: options.username, message: errorMessage });
     return;
   }
+  
+  bot.isDisconnecting = false; // Prevent multiple disconnect events
+
+  // Store original options and webContents for reconnecting
+  bot.originalOptions = options;
+  bot.webContents = webContents;
+
   // Assign the bot instance to the bots object
   bots[options.username] = bot;
-  bot.webContents = webContents; // Store webContents for later use
 
   // Load plugins
   bot.loadPlugin(pathfinder);
@@ -123,13 +131,13 @@ function connectBot(options, webContents) {
     // This list is ordered from most specific to most general.
     const patterns = [
         // User's server: |0| Rank Nickname >> message
-        { regex: /^\|\d\|\s+(.+?)\s+>>\s+(.*)/ },
+        { regex: /^\|d\|\s+(.+?)\s+>>\s+(.*)/ },
         // Ranked, angle brackets: [Admin] <Steve> hi
         { regex: /^\[[^\]]+\] <(.+?)> (.*)/ },
         // Simple angle brackets: <Steve> hi
         { regex: /^<(.+?)> (.*)/ },
         // Ranked, colon: [Mod] Notch: hi
-        { regex: /^\[[^\]]+\] ([\w\d_]{3,16}): (.*)/ },
+        { regex: /^\['[^\\\]]+\'] ([\w\d_]{3,16}): (.*)/ },
         // Simple, colon: Notch: hi
         { regex: /^([\w\d_]{3,16}): (.*)/ }
     ];
@@ -153,15 +161,53 @@ function connectBot(options, webContents) {
     console.log(`[Sohbet Alındı] <${sender}> ${message}`);
     webContents.send('bot-event', { type: 'chat', username: bot.username, data: { sender, message } });
   });
+
+  const handleDisconnect = (reason) => {
+    if (bot.isDisconnecting) return;
+    bot.isDisconnecting = true;
+
+    const botUsername = options.username; // Use username from options for reliability
+    console.log(`${botUsername} bağlantısı sonlandı. Sebep: ${reason}`);
+    
+    // Clean up the old bot instance
+    if (bots[botUsername]) {
+      bots[botUsername].removeAllListeners();
+      delete bots[botUsername];
+    }
+    
+    // Send disconnection event to UI
+    webContents.send('bot-event', { type: 'end', username: botUsername, message: `Bağlantı sonlandı. Sebep: ${reason}` });
+    
+    // Attempt to reconnect if enabled
+    if (options.autoReconnect) {
+      const reconnectDelay = 5000; // 5 seconds
+      console.log(`${botUsername} için yeniden bağlanma denemesi ${reconnectDelay / 1000} saniye içinde yapılacak...`);
+      webContents.send('bot-event', { type: 'reconnecting', username: botUsername, message: `Yeniden bağlanılıyor... (${reconnectDelay / 1000}s)` });
+      
+      setTimeout(() => {
+        if (!bots[botUsername]) { // Double-check bot doesn't exist before reconnecting
+            console.log(`${botUsername} yeniden bağlanıyor...`);
+            connectBot(options, webContents); // Use original options from closure
+        } else {
+            console.log(`${botUsername} için yeniden bağlanma iptal edildi, bot zaten mevcut.`);
+        }
+      }, reconnectDelay);
+    } else {
+        console.log(`[handleDisconnect] ${botUsername} için yeniden bağlanma devre dışı.`);
+    }
+  };
+
   bot.on('error', (err) => {
     console.error(`${bot.username} bir hatayla karşılaştı:`, err);
-    webContents.send('bot-event', { type: 'error', username: bot.username, message: err.message });
-    if (bots[bot.username]) delete bots[bot.username];
+    handleDisconnect(`Hata: ${err.message}`);
   });
+
   bot.on('end', (reason) => {
-    console.log(`${bot.username} bağlantısı sonlandı. Sebep: ${reason}`);
-    webContents.send('bot-event', { type: 'end', username: bot.username, message: `Bağlantı sonlandı. Sebep: ${reason}` });
-    if (bots[bot.username]) delete bots[bot.username];
+    handleDisconnect(reason);
+  });
+
+  bot.on('kicked', (reason, loggedIn) => {
+     handleDisconnect(`Sunucudan atıldı: ${reason}`);
   });
 
   bot.on('heldItemChanged', (heldItem) => {
@@ -251,33 +297,22 @@ async function openNearestChest(username) {
     if (!bot) return;
 
     try {
-        // Dynamically find IDs for all types of chests, shulker boxes, and barrels.
         const containerNames = Object.keys(bot.registry.blocksByName).filter(name =>
-            name.includes('chest') ||
-            name.includes('shulker_box') ||
-            name === 'barrel'
+            name.includes('chest') || name.includes('shulker_box') || name === 'barrel'
         );
         const containerIds = containerNames.map(name => bot.registry.blocksByName[name].id);
 
-        const containerBlock = bot.findBlock({
-            matching: containerIds,
-            maxDistance: 16,
-        });
+        const containerBlock = bot.findBlock({ matching: containerIds, maxDistance: 16 });
 
         if (containerBlock) {
-            //console.log(`[${username}] En yakın konteyner (${containerBlock.name}) bulundu:`, containerBlock.position);
-            // openContainer is a generic function for chests, barrels, shulkers etc.
-            // It returns a Window object, which is what the rest of the code expects.
             bot.activeChest = await bot.openContainer(containerBlock);
         } else {
             const msg = 'Yakında açılabilir konteyner (sandık, varil, vb.) bulunamadı.';
-            bot.webContents.send('bot-event', { type: 'error', username, message: msg });
-            //console.log(`[${username}] ${msg}`);
+            bot.webContents.send('bot-event', { type: 'info', username, message: msg });
         }
     } catch (err) {
         const errorMessage = `Konteyner açılamadı: ${err.message}`;
-        console.error(`[${username}] Konteyner açılırken hata:`, err.message);
-        bot.webContents.send('bot-event', { type: 'inventory-error', username, message: errorMessage });
+        bot.webContents.send('bot-event', { type: 'error', username, message: errorMessage });
     }
 }
 
@@ -286,22 +321,16 @@ function startAntiAFK(username, intervalSeconds = 15) {
   const bot = bots[username];
   if (!bot) return;
 
-  // Eğer zaten bir zamanlayıcı varsa, yenisini başlatmadan önce eskisini temizle
   if (afkTimers[username]) {
     clearInterval(afkTimers[username]);
   }
-
-  //console.log(`${username} için Anti-AFK başlatıldı (controlState). Interval: ${intervalSeconds} saniye.`);
   
   afkTimers[username] = setInterval(() => {
     if (bot && bot.entity) {
-      // Tuşa basıp bırakma efekti için controlState kullanıyoruz.
       bot.controlState.jump = true;
       setTimeout(() => {
         if(bot) bot.controlState.jump = false;
-      }, 200); // 200ms basılı tut
-      
-      //console.log(`${username} zıpladı (Anti-AFK - controlState).`);
+      }, 200);
     }
   }, intervalSeconds * 1000);
 }
@@ -310,14 +339,12 @@ function stopAntiAFK(username) {
   if (afkTimers[username]) {
     clearInterval(afkTimers[username]);
     delete afkTimers[username];
-    //console.log(`${username} için Anti-AFK durduruldu.`);
   }
 }
 
 function disconnectBot(username) {
   const bot = bots[username];
   if (bot) {
-    console.log(`${username} bağlantısı kesiliyor...`);
     bot.quit();
   }
 }
@@ -334,11 +361,9 @@ function getAllBots() { return bots; }
 
 function getInventory(username) {
   const bot = bots[username];
-  // Bot yoksa veya envanteri henüz yüklenmemişse boş bir yapı döndür
   if (!bot || !bot.inventory) {
     return { slots: Array(46).fill(null), version: null };
   }
-  // mineflayer's bot.inventory.slots zaten render bileşeninin beklediği dizi formatındadır.
   return { slots: bot.inventory.slots, version: bot.version };
 }
 
@@ -350,25 +375,19 @@ async function moveItem({ username, sourceSlot, destinationSlot }) {
   const sourceItem = window.slots[sourceSlot];
   const destItem = window.slots[destinationSlot];
 
-  if (!sourceItem) return; // Can't move an empty slot
+  if (!sourceItem) return;
 
   try {
-    //console.log(`[${username}] Moving item from ${sourceSlot} to ${destinationSlot}`);
     if (destItem) {
-      //console.log(`[${username}] Destination not empty. Swapping items.`);
-      // Perform a swap using three clicks
       await bot.clickWindow(sourceSlot, 0, 0);
       await bot.clickWindow(destinationSlot, 0, 0);
       await bot.clickWindow(sourceSlot, 0, 0);
     } else {
-      //console.log(`[${username}] Destination empty. Simple move.`);
-      // Perform a simple move
       await bot.clickWindow(sourceSlot, 0, 0);
       await bot.clickWindow(destinationSlot, 0, 0);
     }
   } catch (err) {
     const errorMessage = `Eşya taşınamadı: ${err.message}`;
-    console.error(`[${username}] Eşya taşınırken hata oluştu: ${sourceSlot} -> ${destinationSlot}`, err.message);
     if (bot.webContents) {
       bot.webContents.send('bot-event', { type: 'inventory-error', username, message: errorMessage });
     }
@@ -382,13 +401,9 @@ async function tossItemStack({ username, sourceSlot }) {
     const item = bot.inventory.slots[sourceSlot];
     if (item) {
       await bot.tossStack(item);
-      //console.log(`[${username}] Eşya atıldı: ${item.name} (Slot: ${sourceSlot})`);
-    } else {
-      //console.log(`[${username}] Eşya atılamadı: Slot ${sourceSlot} boş.`);
     }
   } catch (err) {
     const errorMessage = `Eşya atılamadı: ${err.message}`;
-    console.error(`[${username}] Eşya atılırken hata:`, err.message);
     if (bot.webContents) {
       bot.webContents.send('bot-event', { type: 'inventory-error', username, message: errorMessage });
     }
@@ -399,21 +414,17 @@ async function clearInventory(username) {
   const bot = bots[username];
   if (!bot) return;
   
-  //console.log(`[${username}] Envanter temizleniyor...`);
   const itemsToToss = bot.inventory.items();
   
   for (const item of itemsToToss) {
     try {
       await bot.tossStack(item);
-      // Sunucuyu aşırı yüklememek için küçük bir bekleme süresi ekleyelim
       await new Promise(resolve => setTimeout(resolve, 50)); 
     } catch (err) {
       const errorMessage = `Envanter temizlenirken hata: ${item.name} atılamadı: ${err.message}`;
-      console.error(errorMessage);
       if (bot.webContents) {
         bot.webContents.send('bot-event', { type: 'inventory-error', username, message: errorMessage });
       }
-      // Bir hata oluşursa döngüden çık
       break; 
     }
   }
@@ -423,18 +434,15 @@ function setActiveHotbar({ username, slot }) {
   const bot = bots[username];
   if (!bot) return;
 
-  // Hotbar slots are 36-44. The quick bar slot index is 0-8.
   if (slot >= 36 && slot <= 44) {
     const hotbarIndex = slot - 36;
     bot.setQuickBarSlot(hotbarIndex);
-    //console.log(`[${username}] Aktif hotbar slotu ayarlandı: ${hotbarIndex}`);
   }
 }
 
 function closeWindow(username) {
   const bot = bots[username];
   if (!bot || !bot.currentWindow) return;
-  // This is a generic way to close any window the bot has open.
   bot.closeWindow(bot.currentWindow);
 }
 
@@ -446,7 +454,6 @@ async function withdrawItem({ username, item }) {
         await bot.withdraw(chestWindow, item.type, item.metadata, item.count);
     } catch (err) {
         const errorMessage = `Eşya çekilemedi: ${err.message}`;
-        console.error(`[${username}] Eşya çekilirken hata:`, err.message);
         bot.webContents.send('bot-event', { type: 'inventory-error', username, message: errorMessage });
     }
 }
@@ -459,7 +466,6 @@ async function depositItem({ username, item }) {
         await bot.deposit(chestWindow, item.type, item.metadata, item.count);
     } catch (err) {
         const errorMessage = `Eşya bırakılamadı: ${err.message}`;
-        console.error(`[${username}] Eşya bırakılırken hata:`, err.message);
         bot.webContents.send('bot-event', { type: 'inventory-error', username, message: errorMessage });
     }
 }
@@ -475,7 +481,6 @@ async function breakBlockAt(username, { x, y, z }) {
 
         if (isNaN(numX) || isNaN(numY) || isNaN(numZ)) {
             const msg = `Blok kırmak için geçersiz koordinatlar: X=${x}, Y=${y}, Z=${z}`;
-            console.error(`[${username}] ${msg}`);
             if (bot.webContents) {
                 bot.webContents.send('bot-event', { type: 'error', username, message: msg });
             }
@@ -486,20 +491,16 @@ async function breakBlockAt(username, { x, y, z }) {
 
         if (!blockToBreak) {
             const msg = `Kırılacak blok bulunamadı: ${numX}, ${numY}, ${numZ}`;
-            //console.log(`[${username}] ${msg}`);
-            bot.webContents.send('bot-event', { type: 'error', username, message: msg });
+            bot.webContents.send('bot-event', { type: 'info', username, message: msg });
             return reject(new Error(msg));
         }
 
         try {
-            //console.log(`[${username}] ${blockToBreak.name} bloğu kırılıyor...`);
             await bot.dig(blockToBreak);
-            //console.log(`[${username}] Blok başarıyla kırıldı.`);
             bot.webContents.send('bot-event', { type: 'info', username, message: `${blockToBreak.name} bloğu kırıldı.` });
             resolve();
         } catch (err) {
             const msg = `Blok kırılamadı: ${err.message}`;
-            console.error(`[${username}] ${msg}`);
             bot.webContents.send('bot-event', { type: 'error', username, message: msg });
             reject(err);
         }
@@ -516,18 +517,23 @@ async function openChestAt(username, { x, y, z }) {
         const numZ = Math.floor(parseFloat(z));
 
         if (isNaN(numX) || isNaN(numY) || isNaN(numZ)) {
-            return reject(new Error(`Geçersiz sandık koordinatları: ${x},${y},${z}`));
+            const msg = `Geçersiz sandık koordinatları: ${x},${y},${z}`;
+            bot.webContents.send('bot-event', { type: 'error', username, message: msg });
+            return reject(new Error(msg));
         }
 
         try {
             const chestBlock = bot.blockAt(new Vec3(numX, numY, numZ));
-            if (chestBlock && chestBlock.name === 'chest' || chestBlock.name === 'trapped_chest' || chestBlock.name.endsWith('_chest') || chestBlock.name === 'barrel' || chestBlock.name === 'shulker_box'|| chestBlock.name === 'ender_chest') {
-                bot.activeChest = await bot.openChest(chestBlock);
+            if (chestBlock && (chestBlock.name === 'chest' || chestBlock.name === 'trapped_chest' || chestBlock.name.endsWith('_chest') || chestBlock.name === 'barrel' || chestBlock.name === 'shulker_box'|| chestBlock.name === 'ender_chest')) {
+                bot.activeChest = await bot.openContainer(chestBlock);
                 resolve();
             } else {
-                reject(new Error(`Koordinatta sandık bulunamadı: ${numX},${numY},${numZ}`));
+                const msg = `Koordinatta sandık bulunamadı: ${numX},${numY},${numZ}`;
+                bot.webContents.send('bot-event', { type: 'info', username, message: msg });
+                reject(new Error(msg));
             }
         } catch (err) {
+            bot.webContents.send('bot-event', { type: 'error', username, message: `Sandık açılamadı: ${err.message}` });
             reject(err);
         }
     });
@@ -538,9 +544,8 @@ async function moveToCoordinates(username, { x, y, z }) {
         const bot = bots[username];
         if (!bot || !bot.pathfinder) {
             const msg = `Bot veya pathfinder hareket için uygun değil.`;
-            //console.log(`[${username}] ${msg}`);
             if (bot && bot.webContents) {
-                bot.webContents.send('bot-event', { type: 'error', username, message: msg });
+                bot.webContents.send('bot-event', { type: 'info', username, message: msg });
             }
             return reject(new Error(msg));
         }
@@ -551,43 +556,41 @@ async function moveToCoordinates(username, { x, y, z }) {
 
         if (isNaN(numX) || isNaN(numY) || isNaN(numZ)) {
             const msg = `Geçersiz koordinatlar: X=${x}, Y=${y}, Z=${z}`;
-            console.error(`[${username}] ${msg}`);
             if (bot.webContents) {
-                bot.webContents.send('bot-event', { type: 'error', username, message: msg });
+                bot.webContents.send('bot-event', { type: 'info', username, message: msg });
             }
             return reject(new Error(msg));
         }
 
         const goal = new goals.GoalBlock(numX, numY, numZ);
         bot.pathfinder.setGoal(goal, true);
-        //console.log(`[${username}] Koordinatlara gidiliyor: X=${numX}, Y=${numY}, Z=${numZ}`);
 
         const timeout = setTimeout(() => {
             clearInterval(checkInterval);
             bot.pathfinder.stop();
-            reject(new Error('Hedefe ulaşma zaman aşımına uğradı (30s).'));
-        }, 30000); // 30 saniye timeout
+            const msg = 'Hedefe ulaşma zaman aşımına uğradı (30s).';
+            bot.webContents.send('bot-event', { type: 'info', username, message: msg });
+            reject(new Error(msg));
+        }, 30000);
 
         const checkInterval = setInterval(() => {
             if (!bot.pathfinder.isMoving()) {
                 const botPos = bot.entity.position;
                 const distance = botPos.distanceTo(new Vec3(numX, numY, numZ));
                 
-                // Hedefe yeterince yakınsa (1.5 blok) ve artık hareket etmiyorsa, görevi tamamlanmış say.
                 if (distance <= 1.5) {
-                    //console.log(`[${username}] Hedefe ulaşıldı (Mesafe: ${distance.toFixed(2)}).`);
                     clearTimeout(timeout);
                     clearInterval(checkInterval);
                     resolve();
                 } else {
-                    // Hareket etmiyor ama hedeften uzakta, muhtemelen takıldı.
-                    //console.log(`[${username}] Hedefe ulaşılamadı, bot takılmış olabilir (Mesafe: ${distance.toFixed(2)}).`);
                     clearTimeout(timeout);
                     clearInterval(checkInterval);
-                    reject(new Error('Hedefe ulaşılamadı, bot takıldı.'));
+                    const msg = 'Hedefe ulaşılamadı, bot takıldı.';
+                    bot.webContents.send('bot-event', { type: 'info', username, message: msg });
+                    reject(new Error(msg));
                 }
             }
-        }, 500); // Her 500ms'de bir kontrol et
+        }, 500);
     });
 }
 
@@ -595,16 +598,14 @@ async function withdrawAll(username) {
     const bot = bots[username];
     const chest = bot.activeChest;
     if (!bot || !chest) return;
-
-    //console.log(`[${username}] Sandıktaki tüm eşyalar alınıyor...`);
     
     for (const item of chest.containerItems()) {
         try {
             await chest.withdraw(item.type, item.metadata, item.count);
             await new Promise(resolve => setTimeout(resolve, 50));
         } catch (err) {
-            console.error(`Eşya çekilirken hata: ${err.message}`);
-            bot.webContents.send('bot-event', { type: 'inventory-error', username, message: `Eşya çekilemedi: ${item.name}` });
+            const msg = `Eşya çekilemedi: ${item.name}`;
+            bot.webContents.send('bot-event', { type: 'inventory-error', username, message: msg });
             break; 
         }
     }
@@ -614,21 +615,18 @@ async function depositAll(username) {
     const bot = bots[username];
     const chest = bot.activeChest;
     if (!bot || !chest) return;
-
-    //console.log(`[${username}] Envanterdeki tüm eşyalar sandığa bırakılıyor...`);
     
     for (const item of bot.inventory.items()) {
         try {
             await chest.deposit(item.type, item.metadata, item.count);
             await new Promise(resolve => setTimeout(resolve, 50));
         } catch (err) {
-            console.error(`Eşya bırakılırken hata: ${err.message}`);
-            bot.webContents.send('bot-event', { type: 'inventory-error', username, message: `Eşya bırakılamadı: ${item.name}` });
+            const msg = `Eşya bırakılamadı: ${item.name}`;
+            bot.webContents.send('bot-event', { type: 'inventory-error', username, message: msg });
             break; 
         }
     }
 }
-
 module.exports = {
   connectBot,
   startAntiAFK,

@@ -1,30 +1,108 @@
 import React from 'react';
 
-const AccountIcon = ({ account, isActive, onSelect }) => {
-  const headUrl = `https://mc-heads.net/avatar/${account.username}/48`;
+const AccountListItem = ({ account, botState, isActive, isSelected, onSelect, onToggle }) => {
+  const headUrl = `https://mc-heads.net/avatar/${account.username}/40`;
+  const isConnected = botState?.isConnected || false;
+
+  const handleCheckboxClick = (e) => {
+    e.stopPropagation(); // Butona tıklanmasını engelle
+    onToggle(account.username);
+  };
+  
   return (
-    <button onClick={() => onSelect(account.username)} title={account.username} className={`w-full flex flex-col items-center justify-center p-1 space-y-1 rounded-md transition-all duration-200 ${isActive ? 'bg-blue-600/30' : 'hover:bg-gray-700'}`}>
-      <div className={`relative w-12 h-12`}>
-        <div className={`absolute left-[-8px] top-1/2 -translate-y-1/2 h-8 w-1 bg-white rounded-r-full transition-transform duration-300 ${isActive ? 'scale-y-100' : 'scale-y-0'}`}></div>
-        <img src={headUrl} alt={account.username} className={`w-12 h-12 transition-all duration-200 ${isActive ? 'rounded-2xl' : 'rounded-full'}`} />
-      </div>
-      <span className="text-xs text-gray-300 w-full text-center truncate">{account.username}</span>
-    </button>
+    <div 
+        onClick={() => onSelect(account.username)}
+        className={`w-full flex items-center p-2 rounded-lg cursor-pointer transition-all duration-200 ${isActive ? 'bg-indigo-700/50' : 'hover:bg-gray-700'}`}
+    >
+        <div className="flex items-center mr-3" onClick={handleCheckboxClick}>
+            <input 
+                type="checkbox" 
+                checked={isSelected}
+                readOnly
+                className="w-5 h-5 rounded-md text-indigo-500 bg-gray-800 border-gray-600 focus:ring-indigo-500"
+            />
+        </div>
+        <img src={headUrl} alt={account.username} className="w-10 h-10 rounded-lg mr-3" />
+        <div className="flex-grow">
+            <div className="flex items-center justify-between">
+                <span className="font-semibold text-sm text-white truncate">{account.username}</span>
+                <span className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} title={isConnected ? 'Bağlı' : 'Bağlı Değil'}></span>
+            </div>
+        </div>
+    </div>
   );
 };
 
-const Sidebar = ({ accounts, activeAccount, onAccountSelect, onAddAccount, onGoHome }) => {
+
+const Sidebar = ({ 
+    accounts, 
+    botsState, 
+    activeAccount, 
+    selectedAccounts,
+    onAccountSelect, 
+    onAccountToggle,
+    onAddAccount, 
+    onGoHome,
+    onConnectSelected,
+    onDisconnectSelected,
+    onImportAccounts,
+    onExportAccounts,
+}) => {
   return (
-    <div className="w-24 bg-gray-800 p-2 flex flex-col items-center space-y-2">
-      <button onClick={onGoHome} title="Sunucu Ayarları" className="w-16 h-16 p-2 flex items-center justify-center font-bold text-xl text-white transition-colors duration-200 hover:bg-gray-700 rounded-2xl">
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+    <div className="w-72 bg-gray-800 p-3 flex flex-col">
+      <button onClick={onGoHome} title="Sunucu Ayarları" className="w-full p-3 flex items-center justify-center text-white transition-colors duration-200 hover:bg-gray-700 rounded-lg mb-3">
+        <img src="src/logos/afkpluslogoclear.png" alt="Sunucu Ayarları" className="h-10 w-10 rounded-full mr-3" />
+        <span className="font-bold text-xl">AFKPlus</span>
       </button>
-      <div className="border-t border-gray-700 w-full my-0"></div>
-      <div className="flex-grow w-full space-y-2 overflow-y-auto">
-        {accounts.map(acc => (<AccountIcon key={acc.username} account={acc} isActive={activeAccount === acc.username} onSelect={onAccountSelect} />))}
+      
+      <div className="flex-grow w-full space-y-2 overflow-y-auto pr-1">
+        {accounts.map(acc => (
+          <AccountListItem 
+            key={acc.username} 
+            account={acc}
+            botState={botsState[acc.username]}
+            isActive={activeAccount === acc.username} 
+            isSelected={selectedAccounts.includes(acc.username)}
+            onSelect={onAccountSelect}
+            onToggle={onAccountToggle}
+          />
+        ))}
       </div>
-      <div className="border-t border-gray-700 w-full my-0"></div>
-      <button onClick={onAddAccount} title="Yeni Hesap Ekle" className="w-12 h-12 bg-gray-700 rounded-full flex-shrink-0 flex items-center justify-center font-bold text-2xl cursor-pointer hover:bg-green-500 transition-all duration-200">+</button>
+      
+      <div className="mt-auto flex-shrink-0 pt-3 border-t border-gray-700">
+        <div className="space-y-2">
+           <button 
+            onClick={onConnectSelected} 
+            disabled={selectedAccounts.length === 0}
+            className="w-full bg-green-600 text-white font-semibold py-2.5 px-4 rounded-lg flex items-center justify-center transition-all shadow-md hover:bg-green-700 disabled:bg-gray-500 disabled:cursor-not-allowed"
+          >
+            Seçilileri Başlat
+          </button>
+          <button 
+            onClick={onDisconnectSelected} 
+            disabled={selectedAccounts.length === 0}
+            className="w-full bg-red-600 text-white font-semibold py-2.5 px-4 rounded-lg flex items-center justify-center transition-all shadow-md hover:bg-red-700 disabled:bg-gray-500 disabled:cursor-not-allowed"
+          >
+            Seçilileri Durdur
+          </button>
+        </div>
+        <div className="flex gap-x-2 mt-3">
+            <label className="flex-1 w-full bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg text-center cursor-pointer transition-all text-sm">
+                İçe Aktar
+                <input type="file" accept=".json" className="hidden" onChange={onImportAccounts} />
+            </label>
+            <button onClick={onExportAccounts} className="flex-1 w-full bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg transition-all text-sm">
+                Dışa Aktar
+            </button>
+        </div>
+        <button 
+          onClick={onAddAccount} 
+          title="Yeni Hesap Ekle" 
+          className="w-full mt-3 bg-indigo-600 rounded-lg flex items-center justify-center py-2.5 font-bold text-lg cursor-pointer hover:bg-indigo-700 transition-all"
+        >
+          + Yeni Hesap
+        </button>
+      </div>
     </div>
   );
 };

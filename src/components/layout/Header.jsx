@@ -18,18 +18,33 @@ const FoodDisplay = ({ food = 0 }) => {
   return (<div className="flex items-center">{Array(fullShanks > 0 ? fullShanks : 0).fill(null).map((_, i) => <span key={`full_f_${i}`} className="text-yellow-600">🍗</span>)}{halfShank && <span key="half_f" className="text-yellow-600">🦴</span>}{Array(emptyShanks > 0 ? emptyShanks : 0).fill(null).map((_, i) => <span key={`empty_f_${i}`} className="text-gray-600">◽</span>)}</div>);
 };
 
-const Header = ({ status, onConnectAll, onDisconnectAll }) => {
+const Header = ({ status }) => {
   return (
-    <header className="bg-gray-700 p-3 shadow-md flex items-center justify-between flex-shrink-0">
-      <div>
-        <h2 className="text-lg font-semibold">{status.server || 'Sunucu Seçilmedi'}</h2>
-        <p className="text-sm text-gray-400">Aktif Hesap: {status.username || 'Yok'}</p>
+    <header className="bg-gray-800 p-4 shadow-lg flex items-center justify-between flex-shrink-0 border-b border-gray-700">
+      <div className="flex items-center">
+        <div className="mr-4">
+          <p className="text-sm text-gray-400">Sunucu</p>
+          <h2 className="text-lg font-bold text-white">{status.server || 'N/A'}</h2>
+        </div>
+        <div>
+          <p className="text-sm text-gray-400">Aktif Hesap</p>
+          <h2 className="text-lg font-bold text-white">{status.username || 'Yok'}</h2>
+        </div>
       </div>
-      {status.username && (<div className="flex items-center space-x-4"><HealthDisplay health={status.health} /><FoodDisplay food={status.food} /></div>)}
-      <div className="flex space-x-2">
-        <button onClick={onConnectAll} className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded transition-colors duration-200">Tümünü Başlat</button>
-        <button onClick={onDisconnectAll} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded transition-colors duration-200">Tümünü Durdur</button>
-      </div>
+      
+      {/* Aktif Botun Can ve Açlık Durumu */}
+      {status.isConnected && (
+        <div className="flex items-center gap-x-6">
+          <div>
+            <p className="text-sm text-gray-400 text-center mb-1">Can</p>
+            <HealthDisplay health={status.health} />
+          </div>
+          <div>
+            <p className="text-sm text-gray-400 text-center mb-1">Açlık</p>
+            <FoodDisplay food={status.food} />
+          </div>
+        </div>
+      )}
     </header>
   );
 };

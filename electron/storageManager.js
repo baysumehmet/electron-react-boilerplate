@@ -3,14 +3,17 @@ const path = require('path');
 
 let accountsFilePath;
 let serverInfoFilePath;
+let scriptsPath;
 
 // Bu fonksiyon main.js'den app objesiyle çağrılacak
 function initialize(app) {
   const userDataPath = app.getPath('userData');
   accountsFilePath = path.join(userDataPath, 'accounts.json');
   serverInfoFilePath = path.join(userDataPath, 'serverInfo.json');
+  scriptsPath = path.join(userDataPath, 'scripts.json');
   console.log('Hesapların saklanacağı dosya yolu:', accountsFilePath);
   console.log('Sunucu bilgisinin saklanacağı dosya yolu:', serverInfoFilePath);
+  console.log('Scriptlerin saklanacağı dosya yolu:', scriptsPath);
 }
 
 function saveAccounts(accounts) {
@@ -57,4 +60,33 @@ function loadServerInfo() {
     return null; // Dosya yoksa veya hata varsa null döndür
 }
 
-module.exports = { initialize, saveAccounts, loadAccounts, saveServerInfo, loadServerInfo };
+function saveScripts(scripts) {
+  try {
+    fs.writeFileSync(scriptsPath, JSON.stringify(scripts, null, 2));
+  } catch (error) {
+    console.error('Scriptler kaydedilirken hata oluştu:', error);
+  }
+}
+
+function loadScripts() {
+  try {
+    if (fs.existsSync(scriptsPath)) {
+      const data = fs.readFileSync(scriptsPath, 'utf-8');
+      return JSON.parse(data);
+    }
+  } catch (error) {
+    console.error('Scriptler yüklenirken hata oluştu:', error);
+  }
+  return {}; // Return empty object if file doesn't exist or there's an error
+}
+
+
+module.exports = {
+    initialize,
+    loadAccounts,
+    saveAccounts,
+    loadServerInfo,
+    saveServerInfo,
+    loadScripts,
+    saveScripts,
+};

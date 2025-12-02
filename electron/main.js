@@ -11,6 +11,7 @@ function createWindow() {
   const mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    icon: path.join(__dirname, '../src/logos/afkpluslogo.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -63,6 +64,14 @@ app.whenReady().then(() => {
     ipcMain.on('save-server-info', (event, serverInfo) => {
       storageManager.saveServerInfo(serverInfo);
     });
+
+  ipcMain.handle('load-scripts', () => {
+    return storageManager.loadScripts();
+  });
+
+  ipcMain.on('save-scripts', (event, scripts) => {
+    storageManager.saveScripts(scripts);
+  });
   
     ipcMain.on('disconnect-bot', (event, username) => {
       botManager.disconnectBot(username);
