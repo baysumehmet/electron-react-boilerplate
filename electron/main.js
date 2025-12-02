@@ -121,6 +121,10 @@ app.whenReady().then(() => {
     botManager.withdrawAll(username);
   });
 
+  ipcMain.handle('deposit-to-chest', (event, { username, excludedItems }) => {
+    return botManager.depositToChest(username, excludedItems);
+  });
+
   console.log('--- IPC dinleyicileri ayarlandı. Pencere oluşturuluyor... ---');
   
   createWindow();

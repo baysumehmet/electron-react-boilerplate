@@ -594,39 +594,132 @@ async function moveToCoordinates(username, { x, y, z }) {
     });
 }
 
-async function withdrawAll(username) {
+async function withdrawAll(username, options = {}) {
     const bot = bots[username];
-    const chest = bot.activeChest;
-    if (!bot || !chest) return;
-    
-    for (const item of chest.containerItems()) {
+    if (!bot) return;
+
+    let chest = bot.activeChest;
+    if (!chest) {
+        bot.webContents.send('bot-event', { type: 'info', username, message: 'Yakındaki sandık aranıyor...' });
+        await openNearestChest(username);
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Pencerenin açılması için bekleme süresini artırdık
+        chest = bot.activeChest;
+        if (!chest) {
+            // openNearestChest zaten hata mesajı gönderir.
+            return;
+        }
+    }
+
+    const itemsToWithdraw = chest.containerItems();
+    if (itemsToWithdraw.length === 0) {
+        bot.webContents.send('bot-event', { type: 'info', username, message: 'Sandıkta çekilecek eşya yok.' });
+        return;
+    }
+
+    for (const item of itemsToWithdraw) {
         try {
-            await chest.withdraw(item.type, item.metadata, item.count);
-            await new Promise(resolve => setTimeout(resolve, 50));
+            await bot.withdraw(chest, item.type, null, item.count);
+            await new Promise(resolve => setTimeout(resolve, 100)); // Gecikmeyi artırdık
         } catch (err) {
-            const msg = `Eşya çekilemedi: ${item.name}`;
+            const msg = `Eşya çekilemedi: ${item.name}. Muhtemelen envanter dolu.`;
             bot.webContents.send('bot-event', { type: 'inventory-error', username, message: msg });
-            break; 
+            break;
         }
     }
 }
 
-async function depositAll(username) {
+async function depositAll(username, options = {}) {
     const bot = bots[username];
-    const chest = bot.activeChest;
-    if (!bot || !chest) return;
-    
-    for (const item of bot.inventory.items()) {
+    if (!bot) return;
+
+    let chest = bot.activeChest;
+    if (!chest) {
+        bot.webContents.send('bot-event', { type: 'info', username, message: 'Yakındaki sandık aranıyor...' });
+        await openNearestChest(username);
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Pencerenin açılması için bekleme süresini artırdık
+        chest = bot.activeChest;
+        if (!chest) {
+            // openNearestChest zaten hata mesajı gönderir.
+            return;
+        }
+    }
+
+    // Sadece ana envanterdeki eşyaları bırak (zırh ve sol el hariç)
+    const itemsToDeposit = bot.inventory.items().filter(item => item.slot >= bot.inventory.inventoryStart);
+    if (itemsToDeposit.length === 0) {
+        bot.webContents.send('bot-event', { type: 'info', username, message: 'Bırakılacak eşya yok.' });
+        return;
+    }
+
+    for (const item of itemsToDeposit) {
         try {
-            await chest.deposit(item.type, item.metadata, item.count);
-            await new Promise(resolve => setTimeout(resolve, 50));
+            await bot.deposit(chest, item.type, null, item.count);
+            await new Promise(resolve => setTimeout(resolve, 100)); // Gecikmeyi artırdık
         } catch (err) {
-            const msg = `Eşya bırakılamadı: ${item.name}`;
+            const msg = `Eşya bırakılamadı: ${item.name}. Muhtemelen sandık dolu.`;
             bot.webContents.send('bot-event', { type: 'inventory-error', username, message: msg });
-            break; 
+            break;
         }
     }
 }
+
+async function depositToChest(username, options = {}) {
+    const bot = bots[username];
+    if (!bot) return;
+
+    const { excludedItems: excludedItemsCSV } = options;
+
+    try {
+        let chest = bot.activeChest;
+
+        // If no chest is open, try to open the nearest one.
+        if (!chest) {
+            bot.webContents.send('bot-event', { type: 'info', username, message: 'Yakındaki sandık aranıyor...' });
+            await openNearestChest(username);
+            // After openNearestChest, bot.activeChest should be set.
+            // Re-check after a delay to allow window to open
+            await new Promise(resolve => setTimeout(resolve, 500));
+            chest = bot.activeChest;
+            if (!chest) {
+                // If it's still null, openNearestChest failed.
+                // The error is already sent by openNearestChest, so just return.
+                return;
+            }
+             // Add a small delay to ensure the window is fully open
+            await new Promise(resolve => setTimeout(resolve, 500));
+            chest = bot.activeChest; // Re-assign in case it changed
+        }
+        
+        const excludedItems = new Set(
+            (excludedItemsCSV || '').split(',').map(item => item.trim().toLowerCase()).filter(Boolean)
+        );
+
+        // We only care about the main inventory, not armor or off-hand
+        const itemsToDeposit = bot.inventory.items().filter(item => item.slot >= bot.inventory.inventoryStart);
+
+        for (const item of itemsToDeposit) {
+            if (item && !excludedItems.has(item.name.toLowerCase())) {
+                try {
+                    // Use bot.deposit for better reliability
+                    await bot.deposit(chest, item.type, null, item.count);
+                    await new Promise(resolve => setTimeout(resolve, 100)); // Delay to prevent issues
+                } catch (err) {
+                    // It might fail if the chest is full.
+                    const msg = `Eşya bırakılamadı: ${item.name}. Muhtemelen sandık dolu.`;
+                    bot.webContents.send('bot-event', { type: 'inventory-error', username, message: msg });
+                    // Stop trying to deposit if one fails (likely chest is full)
+                    break;
+                }
+            }
+        }
+    } catch (err) {
+        const errorMessage = `Eşya bırakma sırasında bir hata oluştu: ${err.message}`;
+        if (bot.webContents) {
+            bot.webContents.send('bot-event', { type: 'error', username, message: errorMessage });
+        }
+    }
+}
+
 module.exports = {
   connectBot,
   startAntiAFK,
@@ -649,4 +742,5 @@ module.exports = {
   withdrawItem,
   depositAll,
   withdrawAll,
+  depositToChest,
 };
