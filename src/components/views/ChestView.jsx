@@ -26,7 +26,7 @@ const ChestView = ({ title, slots, username, onClose }) => {
   };
 
   return (
-    <div className="p-4 bg-gray-800 bg-opacity-75 rounded-lg text-white">
+    <div className="p-4 bg-surface/75 rounded-lg text-text-primary">
       <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-bold">{title.replace('container.', '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</h3>
           <div className="flex gap-2">

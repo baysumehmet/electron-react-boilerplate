@@ -25,8 +25,8 @@ const SettingsView = ({ account, onSaveSettings, onDelete }) => {
   };
 
   return (
-    <div className="p-6 bg-gray-900/50 rounded-lg max-w-2xl mx-auto">
-      <h4 className="text-xl font-bold mb-6 text-white">Hesap Ayarları</h4>
+    <div className="p-6 bg-background rounded-lg max-w-2xl mx-auto">
+      <h4 className="text-xl font-bold mb-6 text-text-primary">Hesap Ayarları</h4>
       
       {/* Genel Ayarlar */}
       <div className="space-y-4 mb-8">
@@ -36,9 +36,9 @@ const SettingsView = ({ account, onSaveSettings, onDelete }) => {
               type="checkbox"
               checked={autoReconnect}
               onChange={(e) => setAutoReconnect(e.target.checked)}
-              className="w-5 h-5 rounded text-indigo-500 bg-gray-700 border-gray-600 focus:ring-indigo-500"
+              className="w-5 h-5 rounded text-primary bg-surface border-background focus:ring-primary"
             />
-            <span className="ml-3 text-sm font-medium text-gray-300">Bağlantı kesildiğinde otomatik olarak yeniden bağlan</span>
+            <span className="ml-3 text-sm font-medium text-text-secondary">Bağlantı kesildiğinde otomatik olarak yeniden bağlan</span>
           </label>
         </div>
       </div>
@@ -46,12 +46,12 @@ const SettingsView = ({ account, onSaveSettings, onDelete }) => {
       {/* Otomatik Komutlar */}
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">Otomatik Komutlar (Giriş Sonrası)</label>
-          <p className="text-xs text-gray-400 mb-2">Her satıra bir komut yazın. Bot oyuna girdikten sonra bu komutları sırayla gönderecektir.</p>
+          <label className="block text-sm font-medium text-text-secondary mb-2">Otomatik Komutlar (Giriş Sonrası)</label>
+          <p className="text-xs text-text-secondary mb-2">Her satıra bir komut yazın. Bot oyuna girdikten sonra bu komutları sırayla gönderecektir.</p>
           <textarea 
             value={commands} 
             onChange={(e) => setCommands(e.target.value)} 
-            className="bg-gray-700 rounded-md p-3 w-full text-white font-mono border-2 border-gray-600 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:outline-none transition" 
+            className="bg-surface rounded-md p-3 w-full text-text-primary font-mono border-2 border-background focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none transition" 
             rows="5" 
             placeholder="/login <şifreniz>
 /party accept <yakın arkadaşınız>
@@ -59,16 +59,16 @@ const SettingsView = ({ account, onSaveSettings, onDelete }) => {
           />
         </div>
         <div className="flex items-center space-x-3">
-            <label htmlFor="cmd-delay" className="text-sm font-medium text-gray-300">Komutlar arası bekleme:</label>
+            <label htmlFor="cmd-delay" className="text-sm font-medium text-text-secondary">Komutlar arası bekleme:</label>
             <input 
               type="number" 
               id="cmd-delay" 
               value={delay} 
               min="1" 
               onChange={(e) => setDelay(Number(e.target.value))} 
-              className="bg-gray-700 rounded-md p-2 w-24 text-center text-white border-2 border-gray-600 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:outline-none transition"
+              className="bg-surface rounded-md p-2 w-24 text-center text-text-primary border-2 border-background focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none transition"
             />
-            <span className="text-sm text-gray-400">saniye</span>
+            <span className="text-sm text-text-secondary">saniye</span>
         </div>
       </div>
 
@@ -79,7 +79,7 @@ const SettingsView = ({ account, onSaveSettings, onDelete }) => {
           className={`w-full font-bold py-3 px-6 rounded-md transition-all duration-300 ease-in-out text-white text-lg ${
             saveState === 'saving' 
               ? 'bg-green-600 cursor-not-allowed' 
-              : 'bg-indigo-600 hover:bg-indigo-700 focus:ring-4 focus:ring-indigo-500 focus:ring-opacity-50'
+              : 'bg-primary hover:bg-primary-hover focus:ring-4 focus:ring-primary focus:ring-opacity-50'
           }`} 
           disabled={saveState === 'saving'}
         >
@@ -88,9 +88,9 @@ const SettingsView = ({ account, onSaveSettings, onDelete }) => {
       </div>
 
       {/* Tehlikeli Alan */}
-      <div className="border-t border-gray-700 mt-10 pt-6">
+      <div className="border-t border-background mt-10 pt-6">
         <h5 className="text-lg font-semibold mb-3 text-red-500">Tehlikeli Alan</h5>
-        <p className="text-sm text-gray-400 mb-4">Bu işlem geri alınamaz. Hesabınıza ait tüm ayarlar kalıcı olarak silinecektir.</p>
+        <p className="text-sm text-text-secondary mb-4">Bu işlem geri alınamaz. Hesabınıza ait tüm ayarlar kalıcı olarak silinecektir.</p>
         <button 
           onClick={() => { if(window.confirm(`'${account.username}' adlı hesabı kalıcı olarak silmek istediğinizden emin misiniz?`)) onDelete(account.username) }} 
           className="bg-red-800 hover:bg-red-700 text-white font-bold py-2 px-5 rounded-md transition-colors w-full sm:w-auto"

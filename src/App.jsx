@@ -205,12 +205,18 @@ function App() {
   };
 
   const handleDisconnect = (usernamesToDisconnect) => {
-    usernamesToDisconnect.forEach(username => window.api.disconnectBot(username));
+    usernamesToDisconnect.forEach(username => window.api.disconnectBot(username, true));
   };
   
   const handleConnectSelected = () => {
-    const accountsToConnect = accounts.filter(acc => selectedAccounts.includes(acc.username));
-    handleConnect(accountsToConnect);
+    const accountsToConnect = accounts.filter(acc => 
+      selectedAccounts.includes(acc.username) && !botsState[acc.username]?.isConnected
+    );
+    if (accountsToConnect.length > 0) {
+        handleConnect(accountsToConnect);
+    } else {
+        toast.info("Seçili hesapların tümü zaten bağlı.");
+    }
   };
   
   const handleDisconnectSelected = () => {
@@ -243,7 +249,7 @@ function App() {
   };
 
   return (
-    <div className="bg-gray-900 text-white h-screen flex font-sans">
+    <div className="h-screen flex font-mono">
       <ToastContainer position="bottom-right" theme="dark" />
       <Sidebar 
         accounts={accounts}

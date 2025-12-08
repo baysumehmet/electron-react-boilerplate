@@ -2,6 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
+body {
+  @apply bg-background text-text-primary;
+}
+
 .pixelated {
   image-rendering: pixelated;
   image-rendering: -moz-crisp-edges;

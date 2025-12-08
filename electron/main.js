@@ -73,8 +73,8 @@ app.whenReady().then(() => {
     storageManager.saveScripts(scripts);
   });
   
-    ipcMain.on('disconnect-bot', (event, username) => {
-      botManager.disconnectBot(username);
+    ipcMain.on('disconnect-bot', (event, { username, isManual }) => {
+      botManager.disconnectBot(username, isManual);
     });
 
   ipcMain.handle('get-inventory', (event, username) => {

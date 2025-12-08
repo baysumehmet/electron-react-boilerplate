@@ -10,7 +10,7 @@ contextBridge.exposeInMainWorld('api', {
 
   sendChatMessage: (username, message) => ipcRenderer.send('send-chat', { username, message }),
 
-  disconnectBot: (username) => ipcRenderer.send('disconnect-bot', username),
+  disconnectBot: (username, isManual) => ipcRenderer.send('disconnect-bot', { username, isManual }),
 
   getInventory: (username) => ipcRenderer.invoke('get-inventory', username),
 
@@ -45,7 +45,7 @@ contextBridge.exposeInMainWorld('api', {
 
   // Bot Actions
   connectBot: (options) => ipcRenderer.send('connect-bot', options),
-  disconnectBot: (username) => ipcRenderer.send('disconnect-bot', username),
+  disconnectBot: (username, isManual) => ipcRenderer.send('disconnect-bot', { username, isManual }),
 
   getSupportedVersions: () => ipcRenderer.invoke('get-supported-versions'),
 

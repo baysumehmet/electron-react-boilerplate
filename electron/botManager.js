@@ -9,6 +9,11 @@ if (!global.managedBots) {
 }
 const bots = global.managedBots;
 
+if (!global.manuallyDisconnectedBots) {
+  global.manuallyDisconnectedBots = new Set();
+}
+const manuallyDisconnectedBots = global.manuallyDisconnectedBots;
+
 if (!global.afkTimers) {
   global.afkTimers = {};
 }
@@ -178,6 +183,13 @@ function connectBot(options, webContents) {
     // Send disconnection event to UI
     webContents.send('bot-event', { type: 'end', username: botUsername, message: `Bağlantı sonlandı. Sebep: ${reason}` });
     
+    // Check if this was a manual disconnect, if so, do not reconnect.
+    if (manuallyDisconnectedBots.has(botUsername)) {
+        manuallyDisconnectedBots.delete(botUsername); // Clean up the set
+        console.log(`[handleDisconnect] ${botUsername} için yeniden bağlanma atlandı (manuel durdurma).`);
+        return; // Exit before the reconnect logic
+    }
+
     // Attempt to reconnect if enabled
     if (options.autoReconnect) {
       const reconnectDelay = 5000; // 5 seconds
@@ -342,9 +354,12 @@ function stopAntiAFK(username) {
   }
 }
 
-function disconnectBot(username) {
+function disconnectBot(username, isManual = false) {
   const bot = bots[username];
   if (bot) {
+    if (isManual) {
+      manuallyDisconnectedBots.add(username);
+    }
     bot.quit();
   }
 }

@@ -33,14 +33,14 @@ const InventorySlot = ({ slotNumber, username, onDropItem, isActive, isSelected,
 
   const isDropOver = isOver && canDrop;
   
-  let borderColor = 'border-t-gray-900 border-l-gray-900 border-b-gray-400 border-r-gray-400';
+  let borderColor = 'border-background';
   if (isActive) {
-    borderColor = 'border-yellow-400';
+    borderColor = 'border-primary';
   } else if (isSelected) {
-    borderColor = 'border-blue-500';
+    borderColor = 'border-text-secondary';
   }
   
-  const backgroundColor = isDropOver ? 'bg-green-500 bg-opacity-40' : 'bg-black bg-opacity-50';
+  const backgroundColor = isDropOver ? 'bg-green-500 bg-opacity-40' : 'bg-background bg-opacity-50';
 
   return (
     <div

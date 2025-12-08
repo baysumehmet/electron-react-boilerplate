@@ -12,20 +12,20 @@ const AccountListItem = ({ account, botState, isActive, isSelected, onSelect, on
   return (
     <div 
         onClick={() => onSelect(account.username)}
-        className={`w-full flex items-center p-2 rounded-lg cursor-pointer transition-all duration-200 ${isActive ? 'bg-indigo-700/50' : 'hover:bg-gray-700'}`}
+        className={`w-full flex items-center p-2 rounded-lg cursor-pointer transition-all duration-200 ${isActive ? 'bg-primary/30' : 'hover:bg-background'}`}
     >
         <div className="flex items-center mr-3" onClick={handleCheckboxClick}>
             <input 
                 type="checkbox" 
                 checked={isSelected}
                 readOnly
-                className="w-5 h-5 rounded-md text-indigo-500 bg-gray-800 border-gray-600 focus:ring-indigo-500"
+                className="w-5 h-5 rounded-md text-primary bg-surface border-gray-600 focus:ring-primary"
             />
         </div>
         <img src={headUrl} alt={account.username} className="w-10 h-10 rounded-lg mr-3" />
         <div className="flex-grow">
             <div className="flex items-center justify-between">
-                <span className="font-semibold text-sm text-white truncate">{account.username}</span>
+                <span className="font-semibold text-sm text-text-primary truncate">{account.username}</span>
                 <span className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} title={isConnected ? 'Bağlı' : 'Bağlı Değil'}></span>
             </div>
         </div>
@@ -49,8 +49,8 @@ const Sidebar = ({
     onExportAccounts,
 }) => {
   return (
-    <div className="w-72 bg-gray-800 p-3 flex flex-col">
-      <button onClick={onGoHome} title="Sunucu Ayarları" className="w-full p-3 flex items-center justify-center text-white transition-colors duration-200 hover:bg-gray-700 rounded-lg mb-3">
+    <div className="w-72 bg-surface p-3 flex flex-col">
+      <button onClick={onGoHome} title="Sunucu Ayarları" className="w-full p-3 flex items-center justify-center text-text-primary transition-colors duration-200 hover:bg-background rounded-lg mb-3">
         <img src="src/logos/afkpluslogoclear.png" alt="Sunucu Ayarları" className="h-10 w-10 rounded-full mr-3" />
         <span className="font-bold text-xl">AFKPlus</span>
       </button>
@@ -69,7 +69,7 @@ const Sidebar = ({
         ))}
       </div>
       
-      <div className="mt-auto flex-shrink-0 pt-3 border-t border-gray-700">
+      <div className="mt-auto flex-shrink-0 pt-3 border-t border-gray-600">
         <div className="space-y-2">
            <button 
             onClick={onConnectSelected} 
@@ -87,18 +87,18 @@ const Sidebar = ({
           </button>
         </div>
         <div className="flex gap-x-2 mt-3">
-            <label className="flex-1 w-full bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg text-center cursor-pointer transition-all text-sm">
+            <label className="flex-1 w-full bg-surface hover:bg-background text-text-primary font-semibold py-2 px-4 rounded-lg text-center cursor-pointer transition-all text-sm">
                 İçe Aktar
                 <input type="file" accept=".json" className="hidden" onChange={onImportAccounts} />
             </label>
-            <button onClick={onExportAccounts} className="flex-1 w-full bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg transition-all text-sm">
+            <button onClick={onExportAccounts} className="flex-1 w-full bg-surface hover:bg-background text-text-primary font-semibold py-2 px-4 rounded-lg transition-all text-sm">
                 Dışa Aktar
             </button>
         </div>
         <button 
           onClick={onAddAccount} 
           title="Yeni Hesap Ekle" 
-          className="w-full mt-3 bg-indigo-600 rounded-lg flex items-center justify-center py-2.5 font-bold text-lg cursor-pointer hover:bg-indigo-700 transition-all"
+          className="w-full mt-3 bg-primary rounded-lg flex items-center justify-center py-2.5 font-bold text-lg cursor-pointer hover:bg-primary-hover transition-all"
         >
           + Yeni Hesap
         </button>

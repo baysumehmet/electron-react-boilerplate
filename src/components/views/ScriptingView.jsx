@@ -39,7 +39,7 @@ const CommandComponent = ({ command, onUpdate, onRemove, executionState, onAddCh
                 if (isRunning) {
                     if (completedCommandIds.has(command.id)) borderColor = 'border-blue-500'; // Tamamlandı
                     else if (currentCommandId === command.id) borderColor = 'border-green-500'; // Çalışıyor
-                    else borderColor = 'border-gray-600'; // Bekliyor
+                    else borderColor = 'border-surface'; // Bekliyor
                     if (errorCommandId === command.id) borderColor = 'border-red-500'; // Hata
                 }
             
@@ -55,7 +55,7 @@ const CommandComponent = ({ command, onUpdate, onRemove, executionState, onAddCh
                 if (!isOpen) return null;
                 return (
                     <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
-                        <div className="p-6 bg-gray-800 rounded-lg text-white max-w-md w-full">
+                        <div className="p-6 bg-surface rounded-lg text-text-primary max-w-md w-full">
                             <h3 className="text-lg font-bold mb-4">Yeni Komut Ekle</h3>
                             <div className="grid grid-cols-2 gap-4">
                                 <button onClick={() => onAddCommand({ type: 'move', params: { x: '', y: '', z: '' } })} className="p-3 bg-blue-600 hover:bg-blue-700 rounded-lg">Taşı (Move)</button>
@@ -67,74 +67,74 @@ const CommandComponent = ({ command, onUpdate, onRemove, executionState, onAddCh
                                 <button onClick={() => onAddCommand({ type: 'deposit-to-chest', params: { excludedItems: '' } })} className="p-3 bg-orange-600 hover:bg-orange-700 rounded-lg">Eşyaları Bırak (Deposit)</button>
                                 <button onClick={() => onAddCommand({ type: 'repeat', params: { times: 2 }, children: [] })} className="p-3 bg-pink-600 hover:bg-pink-700 rounded-lg col-span-2">Döngü (Repeat)</button>
                             </div>
-                            <button onClick={onClose} className="mt-6 w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">İptal</button>
+                            <button onClick={onClose} className="mt-6 w-full bg-background hover:bg-surface text-white font-bold py-2 px-4 rounded">İptal</button>
                         </div>
                     </div>
                 );
             };
             
             const MoveCommand = ({ command, onUpdate, onRemove }) => (
-                <div className="p-3 bg-gray-700/50 rounded-lg flex items-center gap-4">
+                <div className="p-3 bg-background/50 rounded-lg flex items-center gap-4">
                     <span className="font-bold text-blue-400">Taşı</span>
-                    <input type="text" value={command.params.x} onChange={e => onUpdate(command.id, { ...command, params: { ...command.params, x: e.target.value }})} className="bg-gray-800 rounded p-1 w-20 text-center" placeholder="x" />
-                    <input type="text" value={command.params.y} onChange={e => onUpdate(command.id, { ...command, params: { ...command.params, y: e.target.value }})} className="bg-gray-800 rounded p-1 w-20 text-center" placeholder="y" />
-                    <input type="text" value={command.params.z} onChange={e => onUpdate(command.id, { ...command, params: { ...command.params, z: e.target.value }})} className="bg-gray-800 rounded p-1 w-20 text-center" placeholder="z" />
+                    <input type="text" value={command.params.x} onChange={e => onUpdate(command.id, { ...command, params: { ...command.params, x: e.target.value }})} className="bg-surface rounded p-1 w-20 text-center" placeholder="x" />
+                    <input type="text" value={command.params.y} onChange={e => onUpdate(command.id, { ...command, params: { ...command.params, y: e.target.value }})} className="bg-surface rounded p-1 w-20 text-center" placeholder="y" />
+                    <input type="text" value={command.params.z} onChange={e => onUpdate(command.id, { ...command, params: { ...command.params, z: e.target.value }})} className="bg-surface rounded p-1 w-20 text-center" placeholder="z" />
                     <button onClick={() => onRemove(command.id)} className="ml-auto text-red-500 hover:text-red-400 font-bold">X</button>
                 </div>
             );
             
             const WaitCommand = ({ command, onUpdate, onRemove }) => (
-                 <div className="p-3 bg-gray-700/50 rounded-lg flex items-center gap-4">
+                 <div className="p-3 bg-background/50 rounded-lg flex items-center gap-4">
                     <span className="font-bold text-purple-400">Bekle</span>
-                    <input type="number" min="0" value={command.params.milliseconds} onChange={e => onUpdate(command.id, { ...command, params: { ...command.params, milliseconds: parseInt(e.target.value) || 0 }})} className="bg-gray-800 rounded p-1 w-24 text-center" />
-                    <span className="text-gray-400">ms</span>
+                    <input type="number" min="0" value={command.params.milliseconds} onChange={e => onUpdate(command.id, { ...command, params: { ...command.params, milliseconds: parseInt(e.target.value) || 0 }})} className="bg-surface rounded p-1 w-24 text-center" />
+                    <span className="text-text-secondary">ms</span>
                     <button onClick={() => onRemove(command.id)} className="ml-auto text-red-500 hover:text-red-400 font-bold">X</button>
                 </div>
             );
             
             const SayCommand = ({ command, onUpdate, onRemove }) => (
-                <div className="p-3 bg-gray-700/50 rounded-lg flex items-center gap-4">
+                <div className="p-3 bg-background/50 rounded-lg flex items-center gap-4">
                     <span className="font-bold text-green-400">Söyle</span>
-                    <input type="text" value={command.params.message} onChange={e => onUpdate(command.id, { ...command, params: { ...command.params, message: e.target.value }})} className="bg-gray-800 rounded p-1 flex-grow" placeholder="Sohbet mesajı..." />
+                    <input type="text" value={command.params.message} onChange={e => onUpdate(command.id, { ...command, params: { ...command.params, message: e.target.value }})} className="bg-surface rounded p-1 flex-grow" placeholder="Sohbet mesajı..." />
                     <button onClick={() => onRemove(command.id)} className="ml-auto text-red-500 hover:text-red-400 font-bold">X</button>
                 </div>
             );
             
             const BreakBlockCommand = ({ command, onUpdate, onRemove }) => (
-                <div className="p-3 bg-gray-700/50 rounded-lg flex items-center gap-4">
+                <div className="p-3 bg-background/50 rounded-lg flex items-center gap-4">
                     <span className="font-bold text-red-400">Blok Kır</span>
-                    <input type="text" value={command.params.x} onChange={e => onUpdate(command.id, { ...command, params: { ...command.params, x: e.target.value }})} className="bg-gray-800 rounded p-1 w-20 text-center" placeholder="x" />
-                    <input type="text" value={command.params.y} onChange={e => onUpdate(command.id, { ...command, params: { ...command.params, y: e.target.value }})} className="bg-gray-800 rounded p-1 w-20 text-center" placeholder="y" />
-                    <input type="text" value={command.params.z} onChange={e => onUpdate(command.id, { ...command, params: { ...command.params, z: e.target.value }})} className="bg-gray-800 rounded p-1 w-20 text-center" placeholder="z" />
+                    <input type="text" value={command.params.x} onChange={e => onUpdate(command.id, { ...command, params: { ...command.params, x: e.target.value }})} className="bg-surface rounded p-1 w-20 text-center" placeholder="x" />
+                    <input type="text" value={command.params.y} onChange={e => onUpdate(command.id, { ...command, params: { ...command.params, y: e.target.value }})} className="bg-surface rounded p-1 w-20 text-center" placeholder="y" />
+                    <input type="text" value={command.params.z} onChange={e => onUpdate(command.id, { ...command, params: { ...command.params, z: e.target.value }})} className="bg-surface rounded p-1 w-20 text-center" placeholder="z" />
                     <button onClick={() => onRemove(command.id)} className="ml-auto text-red-500 hover:text-red-400 font-bold">X</button>
                 </div>
             );
             
             const OpenChestAtCommand = ({ command, onUpdate, onRemove }) => (
-                <div className="p-3 bg-gray-700/50 rounded-lg flex items-center gap-4">
+                <div className="p-3 bg-background/50 rounded-lg flex items-center gap-4">
                     <span className="font-bold text-yellow-400">Sandık Aç</span>
-                    <input type="text" value={command.params.x} onChange={e => onUpdate(command.id, { ...command, params: { ...command.params, x: e.target.value }})} className="bg-gray-800 rounded p-1 w-20 text-center" placeholder="x" />
-                    <input type="text" value={command.params.y} onChange={e => onUpdate(command.id, { ...command, params: { ...command.params, y: e.target.value }})} className="bg-gray-800 rounded p-1 w-20 text-center" placeholder="y" />
-                    <input type="text" value={command.params.z} onChange={e => onUpdate(command.id, { ...command, params: { ...command.params, z: e.target.value }})} className="bg-gray-800 rounded p-1 w-20 text-center" placeholder="z" />
+                    <input type="text" value={command.params.x} onChange={e => onUpdate(command.id, { ...command, params: { ...command.params, x: e.target.value }})} className="bg-surface rounded p-1 w-20 text-center" placeholder="x" />
+                    <input type="text" value={command.params.y} onChange={e => onUpdate(command.id, { ...command, params: { ...command.params, y: e.target.value }})} className="bg-surface rounded p-1 w-20 text-center" placeholder="y" />
+                    <input type="text" value={command.params.z} onChange={e => onUpdate(command.id, { ...command, params: { ...command.params, z: e.target.value }})} className="bg-surface rounded p-1 w-20 text-center" placeholder="z" />
                     <button onClick={() => onRemove(command.id)} className="ml-auto text-red-500 hover:text-red-400 font-bold">X</button>
                 </div>
             );
             
             const OpenNearestChestCommand = ({ onRemove, command }) => (
-                <div className="p-3 bg-gray-700/50 rounded-lg flex items-center gap-4">
+                <div className="p-3 bg-background/50 rounded-lg flex items-center gap-4">
                     <span className="font-bold text-yellow-400">En Yakın Sandığı Aç</span>
                     <button onClick={() => onRemove(command.id)} className="ml-auto text-red-500 hover:text-red-400 font-bold">X</button>
                 </div>
             );
             
             const DepositToChestCommand = ({ command, onUpdate, onRemove }) => (
-                <div className="p-3 bg-gray-700/50 rounded-lg flex items-center gap-4">
+                <div className="p-3 bg-background/50 rounded-lg flex items-center gap-4">
                     <span className="font-bold text-orange-400">Eşyaları Bırak</span>
                     <input 
                         type="text" 
                         value={command.params.excludedItems} 
                         onChange={e => onUpdate(command.id, { ...command, params: { ...command.params, excludedItems: e.target.value }})} 
-                        className="bg-gray-800 rounded p-1 flex-grow" 
+                        className="bg-surface rounded p-1 flex-grow" 
                         placeholder="Hariç tutulacaklar (virgülle ayırın)..." 
                     />
                     <button onClick={() => onRemove(command.id)} className="ml-auto text-red-500 hover:text-red-400 font-bold">X</button>
@@ -145,12 +145,12 @@ const CommandComponent = ({ command, onUpdate, onRemove, executionState, onAddCh
                 const [isModalOpen, setIsModalOpen] = useState(false);
             
                 return (
-                    <div className="p-3 bg-gray-700/50 rounded-lg">
+                    <div className="p-3 bg-background/50 rounded-lg">
                         <AddCommandModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onAddCommand={(newCmd) => onAddChild(command.id, newCmd)} />
                         <div className="flex items-center gap-4 mb-3">
                             <span className="font-bold text-pink-400">Döngü</span>
-                            <input type="number" min="1" value={command.params.times} onChange={e => onUpdate(command.id, { ...command, params: { ...command.params, times: parseInt(e.target.value) || 1 }})} className="bg-gray-800 rounded p-1 w-20 text-center" />
-                            <span className="text-gray-400">kez tekrarla</span>
+                            <input type="number" min="1" value={command.params.times} onChange={e => onUpdate(command.id, { ...command, params: { ...command.params, times: parseInt(e.target.value) || 1 }})} className="bg-surface rounded p-1 w-20 text-center" />
+                            <span className="text-text-secondary">kez tekrarla</span>
                             <button onClick={() => onRemove(command.id)} className="ml-auto text-red-500 hover:text-red-400 font-bold">X</button>
                         </div>
                         <div className="pl-6 border-l-2 border-pink-400/30 space-y-2">
@@ -166,7 +166,7 @@ const CommandComponent = ({ command, onUpdate, onRemove, executionState, onAddCh
                                     onRemoveChild={onRemoveChild}
                                 />
                             )}
-                            <button onClick={() => setIsModalOpen(true)} className="w-full p-2 bg-gray-600/50 hover:bg-gray-600 rounded-lg text-lg font-bold text-gray-400">+</button>
+                            <button onClick={() => setIsModalOpen(true)} className="w-full p-2 bg-surface/50 hover:bg-surface rounded-lg text-lg font-bold text-text-secondary">+</button>
                         </div>
                     </div>
                 );
@@ -353,13 +353,13 @@ const CommandComponent = ({ command, onUpdate, onRemove, executionState, onAddCh
                 };
             
                 return (
-                    <div className="p-4 bg-gray-800/80 rounded-lg text-white border border-gray-700/50">
+                    <div className="p-4 bg-transparent rounded-lg text-text-primary">
                         <AddCommandModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onAddCommand={addCommand} />
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="text-xl font-bold">Script Editörü</h3>
                             <div className="flex gap-2">
-                                <button onClick={handleExportScript} className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded text-sm">Dışa Aktar</button>
-                                <label className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded text-sm cursor-pointer">
+                                <button onClick={handleExportScript} className="bg-surface hover:bg-background text-text-primary font-bold py-2 px-4 rounded text-sm">Dışa Aktar</button>
+                                <label className="bg-primary hover:bg-primary-hover text-white font-bold py-2 px-4 rounded text-sm cursor-pointer">
                                     İçe Aktar <input type="file" accept=".json" className="hidden" onChange={handleImportScript} />
                                 </label>
                                 <button onClick={handleRunScript} disabled={executionState.isRunning} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded disabled:bg-gray-500 disabled:cursor-not-allowed">
@@ -380,7 +380,7 @@ const CommandComponent = ({ command, onUpdate, onRemove, executionState, onAddCh
                                     onRemoveChild={removeChildCommand}
                                 />
                             )}
-                             <button onClick={() => setIsModalOpen(true)} className="w-full p-3 bg-gray-700 hover:bg-gray-600 rounded-lg text-2xl font-bold text-gray-400 transition-colors">
+                             <button onClick={() => setIsModalOpen(true)} className="w-full p-3 bg-surface hover:bg-background rounded-lg text-2xl font-bold text-text-secondary transition-colors">
                                 +
                             </button>
                         </div>

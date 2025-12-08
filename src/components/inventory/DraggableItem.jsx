@@ -37,7 +37,7 @@ const DraggableItem = ({ item }) => {
         />
       )}
       {item.count > 1 && (
-        <span className="absolute bottom-1 right-1 text-white text-lg font-bold" style={{ textShadow: '2px 2px #000' }}>
+        <span className="absolute bottom-1 right-1 text-text-primary text-lg font-bold" style={{ textShadow: '2px 2px #000' }}>
           {item.count}
         </span>
       )}

@@ -100,7 +100,7 @@ const InventoryView = ({ username, chest }) => {
   };
 
   return (
-      <div className="p-4 bg-gray-800 rounded-lg text-white">
+      <div className="p-4 bg-transparent rounded-lg text-text-primary">
         <div className="flex flex-col sm:flex-row gap-8">
           
           {/* Karakter, Zırh ve Offhand Alanı */}
@@ -134,7 +134,7 @@ const InventoryView = ({ username, chest }) => {
             <div className="flex justify-between items-start mb-4">
               <h3 className="text-lg font-bold">Envanter</h3>
               <div className="flex gap-2 flex-wrap justify-end">
-                <button onClick={() => window.api.openNearestChest(username)} className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-1 px-3 rounded text-sm">En Yakındaki Sandığı Aç</button>
+                <button onClick={() => window.api.openNearestChest(username)} className="bg-primary hover:bg-primary-hover text-white font-bold py-1 px-3 rounded text-sm">En Yakındaki Sandığı Aç</button>
                 <button onClick={() => window.api.setActiveHotbar({ username, slot: selectedSlot })} disabled={selectedSlot === null || (isChestOpen ? (selectedSlot < chestSlotCount + 27 || selectedSlot > chestSlotCount + 35) : (selectedSlot < 36 || selectedSlot > 44))} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed">Aktif Hotbar Yap</button>
                 <button onClick={handleTossSelected} disabled={selectedSlot === null} className="bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-1 px-3 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed">Seçili Eşyayı At</button>
                 <button onClick={handleClearInventory} className="bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-3 rounded text-sm">Envanteri Boşalt</button>
@@ -145,7 +145,7 @@ const InventoryView = ({ username, chest }) => {
               {isChestOpen ? renderGrid(chestSlotCount, chestSlotCount + 26) : renderGrid(9, 35)}
             </div>
             {/* Hotbar */}
-            <div className="grid grid-cols-9 gap-1 mt-2 pt-2 border-t-2 border-gray-700">
+            <div className="grid grid-cols-9 gap-1 mt-2 pt-2 border-t-2 border-background">
               {isChestOpen ? renderGrid(chestSlotCount + 27, chestSlotCount + 35) : renderGrid(36, 44)}
             </div>
           </div>
