@@ -2,6 +2,8 @@
 const mineflayer = require('mineflayer');
 const { Vec3 } = require('vec3');
 const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
+const { SocksProxyAgent } = require('socks-proxy-agent');
+const { SocksClient } = require('socks');
 
 // Prevent memory leaks and state loss during hot-reloads in development
 if (!global.managedBots) {
@@ -28,25 +30,92 @@ function connectBot(options, webContents) {
   const host = options.host;
   const port = options.port || 25565;
 
-  // Log the connection options to prove the version is being used
-  console.log(`[${options.username}] Connecting with options:`, {
+  let connectOptions = {
     host: host,
-    port: port,
-    username: options.username,
-    auth: options.auth,
-    version: options.version || 'auto',
-    autoReconnect: options.autoReconnect // Log the reconnect option
-  });
-
-  // Create the bot instance directly
-  const bot = mineflayer.createBot({
-    host: host,
-    port: parseInt(port), // Ensure port is an integer
+    port: parseInt(port),
     username: options.username,
     auth: options.auth || 'offline',
     version: options.version || 'auto',
-    checkTimeoutInterval: 60 * 1000, // Increase timeout to 60s
+    checkTimeoutInterval: 60 * 1000,
+  };
+
+  if (options.proxy && options.proxy.host && options.proxy.port) {
+    const { type, host: proxyHost, port: proxyPort, username: proxyUsername, password: proxyPassword } = options.proxy;
+
+    if (type === 'SOCKS5') {
+      console.log(`[${options.username}] Connecting via SOCKS5 proxy: ${proxyHost}:${proxyPort}`);
+      connectOptions.connect = (client) => {
+        SocksClient.createConnection({
+          proxy: {
+            host: proxyHost,
+            port: parseInt(proxyPort),
+            type: 5, // SOCKS5
+            userId: proxyUsername,
+            password: proxyPassword,
+          },
+          command: 'connect',
+          destination: {
+            host: host,
+            port: parseInt(port),
+          },
+        }).then(info => {
+          client.setSocket(info.socket);
+          client.emit('connect');
+        }).catch(err => {
+          console.error(`[${options.username}] SOCKS Proxy Error:`, err);
+          webContents.send('bot-event', { type: 'error', username: options.username, message: `SOCKS Proxy Hatası: ${err.message}` });
+        });
+      };
+    } else if (type === 'HTTP') {
+      console.log(`[${options.username}] Connecting via HTTP proxy: ${proxyHost}:${proxyPort}`);
+      // Note: HTTP proxy support for raw TCP is complex and often requires a CONNECT request.
+      // This is a simplified example and might not work with all HTTP proxies.
+      connectOptions.connect = (client) => {
+        const proxyOptions = {
+            method: 'CONNECT',
+            host: proxyHost,
+            port: proxyPort,
+            path: `${host}:${port}`,
+            headers: { 'Host': `${host}:${port}` }
+        };
+        if (proxyUsername && proxyPassword) {
+            proxyOptions.headers = proxyOptions.headers || {};
+            proxyOptions.headers['Proxy-Authorization'] = 'Basic ' + Buffer.from(`${proxyUsername}:${proxyPassword}`).toString('base64');
+        }
+
+        const req = require('http').request(proxyOptions);
+        req.on('connect', (res, socket, head) => {
+            if (res.statusCode === 200) {
+                client.setSocket(socket);
+                client.emit('connect');
+            } else {
+                client.emit('error', new Error(`Proxy connection failed: ${res.statusCode}`));
+            }
+        });
+        req.on('error', (err) => {
+            client.emit('error', err);
+        });
+        req.end();
+      };
+    }
+  }
+
+
+  // Log the connection options to prove the version is being used
+  console.log(`[${options.username}] Connecting with options:`, {
+    ...connectOptions,
+    agent: connectOptions.agent ? '[Proxy Agent]' : 'none' // Don't log the entire agent object
   });
+
+  let bot;
+  try {
+    // Create the bot instance directly
+    bot = mineflayer.createBot(connectOptions);
+  } catch (error) {
+    console.error(`[${options.username}] Error creating bot:`, error);
+    webContents.send('bot-event', { type: 'error', username: options.username, message: `Bot oluşturulurken hata: ${error.message}` });
+    return;
+  }
 
   // Hata Kontrolü: mineflayer.createBot başarısız olursa, bot tanımsız olabilir.
   if (!bot) {

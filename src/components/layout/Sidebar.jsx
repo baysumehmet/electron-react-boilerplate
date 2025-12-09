@@ -86,15 +86,6 @@ const Sidebar = ({
             Seçilileri Durdur
           </button>
         </div>
-        <div className="flex gap-x-2 mt-3">
-            <label className="flex-1 w-full bg-surface hover:bg-background text-text-primary font-semibold py-2 px-4 rounded-lg text-center cursor-pointer transition-all text-sm">
-                İçe Aktar
-                <input type="file" accept=".json" className="hidden" onChange={onImportAccounts} />
-            </label>
-            <button onClick={onExportAccounts} className="flex-1 w-full bg-surface hover:bg-background text-text-primary font-semibold py-2 px-4 rounded-lg transition-all text-sm">
-                Dışa Aktar
-            </button>
-        </div>
         <button 
           onClick={onAddAccount} 
           title="Yeni Hesap Ekle" 

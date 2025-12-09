@@ -198,7 +198,7 @@ function App() {
     accountsToConnect.forEach(account => {
       if (!account) return;
       // Ensure autoReconnect is enabled, even for older account configurations
-      const options = { ...serverInfo, ...account, autoReconnect: true };
+      const options = { ...serverInfo, ...account, autoReconnect: account.autoReconnect !== undefined ? account.autoReconnect : true };
       setBotsState(prev => ({...prev, [options.username]: { health: 20, food: 20, chat: [], isConnected: false }}));
       window.api.connectBot(options);
     });
@@ -228,7 +228,7 @@ function App() {
   const activeScript = scripts[activeAccount] || [];
 
   const renderView = () => {
-    if (view === 'add-account') return <AddAccountView accounts={accounts} onAdd={handleAddAccount} />;
+    if (view === 'add-account') return <AddAccountView accounts={accounts} onAdd={handleAddAccount} onImportAccounts={handleImportAccounts} onExportAccounts={handleExportAccounts} />;
     if (view === 'server-settings') return <ServerSettingsView initialServerInfo={serverInfo} onSave={handleSaveServerInfo} />;
     return (<>
         <Header status={{ ...activeBotCurrentState, username: activeAccountDetails?.username, server: serverInfo.host }} />

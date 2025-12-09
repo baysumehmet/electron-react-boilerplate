@@ -4,6 +4,8 @@ const SettingsView = ({ account, onSaveSettings, onDelete }) => {
   const [commands, setCommands] = useState('');
   const [delay, setDelay] = useState(5);
   const [autoReconnect, setAutoReconnect] = useState(true);
+  const [proxyEnabled, setProxyEnabled] = useState(false);
+  const [proxy, setProxy] = useState({ type: 'SOCKS5', host: '', port: '', username: '', password: '' });
   const [saveState, setSaveState] = useState('idle');
 
   useEffect(() => {
@@ -11,15 +13,21 @@ const SettingsView = ({ account, onSaveSettings, onDelete }) => {
       setCommands(account.autoLoginCommands || '');
       setDelay(account.commandDelay || 5);
       setAutoReconnect(account.autoReconnect !== undefined ? account.autoReconnect : true);
+      setProxyEnabled(!!account.proxy);
+      if (account.proxy) {
+        setProxy(account.proxy);
+      }
     }
   }, [account]);
 
   const handleSave = () => {
-    onSaveSettings(account.username, { 
+    const settingsToSave = { 
       autoLoginCommands: commands, 
       commandDelay: delay,
       autoReconnect: autoReconnect,
-    });
+      proxy: proxyEnabled ? proxy : null,
+    };
+    onSaveSettings(account.username, settingsToSave);
     setSaveState('saving');
     setTimeout(() => setSaveState('idle'), 2000);
   };
@@ -43,8 +51,55 @@ const SettingsView = ({ account, onSaveSettings, onDelete }) => {
         </div>
       </div>
 
+      {/* Proxy Ayarları */}
+      <div className="space-y-4 mb-8 border-t border-background pt-6">
+        <h5 className="text-lg font-semibold mb-3 text-text-primary">Proxy Ayarları</h5>
+        <label className="flex items-center cursor-pointer">
+          <input 
+            type="checkbox"
+            checked={proxyEnabled}
+            onChange={(e) => setProxyEnabled(e.target.checked)}
+            className="w-5 h-5 rounded text-primary bg-surface border-background focus:ring-primary"
+          />
+          <span className="ml-3 text-sm font-medium text-text-secondary">Proxy ile bağlan</span>
+        </label>
+        {proxyEnabled && (
+          <div className="space-y-4 pl-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-2">Proxy Tipi</label>
+                <select value={proxy.type} onChange={e => setProxy({...proxy, type: e.target.value})} className="bg-surface border-2 border-background rounded-md p-3 w-full text-text-primary focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none transition appearance-none">
+                  <option value="SOCKS5">SOCKS5</option>
+                  <option value="HTTP">HTTP/HTTPS</option>
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-2">Sunucu</label>
+                <input type="text" value={proxy.host} onChange={e => setProxy({...proxy, host: e.target.value})} placeholder="127.0.0.1" className="bg-surface border-2 border-background rounded-md p-3 w-full text-text-primary focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none transition" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-2">Port</label>
+                <input type="number" value={proxy.port} onChange={e => setProxy({...proxy, port: e.target.value})} placeholder="9050" className="bg-surface border-2 border-background rounded-md p-3 w-full text-text-primary focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none transition" />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-2">Kullanıcı Adı (İsteğe Bağlı)</label>
+                <input type="text" value={proxy.username} onChange={e => setProxy({...proxy, username: e.target.value})} className="bg-surface border-2 border-background rounded-md p-3 w-full text-text-primary focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none transition" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-2">Şifre (İsteğe Bağlı)</label>
+                <input type="password" value={proxy.password} onChange={e => setProxy({...proxy, password: e.target.value})} className="bg-surface border-2 border-background rounded-md p-3 w-full text-text-primary focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none transition" />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Otomatik Komutlar */}
-      <div className="space-y-4">
+      <div className="space-y-4 border-t border-background pt-6">
         <div>
           <label className="block text-sm font-medium text-text-secondary mb-2">Otomatik Komutlar (Giriş Sonrası)</label>
           <p className="text-xs text-text-secondary mb-2">Her satıra bir komut yazın. Bot oyuna girdikten sonra bu komutları sırayla gönderecektir.</p>
