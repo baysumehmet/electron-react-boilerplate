@@ -239,6 +239,7 @@ function App() {
             isConnected={activeBotCurrentState.isConnected}
             chest={chest}
             script={activeScript}
+            selectedAccounts={selectedAccounts}
             onUpdateScript={handleUpdateScript}
             onConnect={() => handleConnect([activeAccountDetails])} 
             onDisconnect={() => handleDisconnect([activeAccountDetails.username])} 

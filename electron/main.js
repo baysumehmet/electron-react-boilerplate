@@ -122,7 +122,11 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle('deposit-to-chest', (event, { username, excludedItems }) => {
-    return botManager.depositToChest(username, excludedItems);
+    return botManager.depositToChest(username, { excludedItems });
+  });
+
+  ipcMain.handle('follow-player', (event, { username, targetUsername, duration }) => {
+    return botManager.followPlayer(username, targetUsername, duration);
   });
 
   console.log('--- IPC dinleyicileri ayarlandı. Pencere oluşturuluyor... ---');

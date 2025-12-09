@@ -72,7 +72,7 @@ const AntiAfkView = ({ activeBotUsername }) => {
 const BASE_TABS = ['Sohbet', 'Anti-AFK', 'Ayarlar'];
 const CONNECTED_TABS = ['Sohbet', 'Envanter', 'Scripting', 'Anti-AFK', 'Ayarlar'];
 
-const MainContent = ({ account, events, isConnected, chest, script, onUpdateScript, onConnect, onDisconnect, onDelete, onSaveSettings }) => {
+const MainContent = ({ account, events, isConnected, chest, script, onUpdateScript, onConnect, onDisconnect, onDelete, onSaveSettings, selectedAccounts }) => {
     const TABS = isConnected ? CONNECTED_TABS : BASE_TABS;
     const [activeTab, setActiveTab] = useState(TABS[0]);
 
@@ -140,7 +140,7 @@ const MainContent = ({ account, events, isConnected, chest, script, onUpdateScri
                 {activeTab === 'Sohbet' && <ChatView events={events} activeBotUsername={account.username} />}
                 {activeTab === 'Anti-AFK' && <AntiAfkView activeBotUsername={account.username} />}
                 {activeTab === 'Ayarlar' && <SettingsView account={account} onSaveSettings={onSaveSettings} onDelete={onDelete} />}
-                {activeTab === 'Scripting' && isConnected && <ScriptingView username={account.username} script={script} setScript={onUpdateScript} />}
+                {activeTab === 'Scripting' && isConnected && <ScriptingView username={account.username} script={script} setScript={onUpdateScript} selectedAccounts={selectedAccounts} />}
                 {isInventoryTab && (
                     <DndProvider backend={HTML5Backend}>
                         <InventoryView username={account.username} chest={chest} />

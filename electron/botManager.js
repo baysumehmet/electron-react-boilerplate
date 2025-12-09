@@ -804,6 +804,36 @@ async function depositToChest(username, options = {}) {
     }
 }
 
+async function followPlayer(username, targetUsername, duration) {
+  const bot = bots[username];
+  if (!bot) return;
+
+  const target = bot.players[targetUsername] ? bot.players[targetUsername].entity : null;
+  if (!target) {
+    bot.webContents.send('bot-event', { type: 'info', username, message: `Oyuncu bulunamadı: ${targetUsername}` });
+    return;
+  }
+
+  bot.webContents.send('bot-event', { type: 'info', username, message: `${targetUsername} ${duration} saniye boyunca takip ediliyor.` });
+
+  const followInterval = setInterval(() => {
+    if (bot && bot.players[targetUsername] && bot.players[targetUsername].entity) {
+      const target = bot.players[targetUsername].entity;
+      bot.pathfinder.setGoal(new goals.GoalFollow(target, 1), true);
+    } else {
+      bot.pathfinder.stop();
+    }
+  }, 1000);
+
+  setTimeout(() => {
+    clearInterval(followInterval);
+    if (bot) {
+      bot.pathfinder.stop();
+      bot.webContents.send('bot-event', { type: 'info', username, message: `Takip etme görevi tamamlandı: ${targetUsername}` });
+    }
+  }, duration * 1000);
+}
+
 module.exports = {
   connectBot,
   startAntiAFK,
@@ -827,4 +857,5 @@ module.exports = {
   depositAll,
   withdrawAll,
   depositToChest,
+  followPlayer,
 };

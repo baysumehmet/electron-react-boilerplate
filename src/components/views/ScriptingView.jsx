@@ -18,6 +18,8 @@ const CommandComponent = ({ command, onUpdate, onRemove, executionState, onAddCh
                             return <OpenNearestChestCommand command={command} onUpdate={onUpdate} onRemove={onRemove} />;
                         case 'deposit-to-chest':
                             return <DepositToChestCommand command={command} onUpdate={onUpdate} onRemove={onRemove} />;
+            case 'follow-player':
+                return <FollowCommand command={command} onUpdate={onUpdate} onRemove={onRemove} />;
                         case 'repeat':
                             return <RepeatCommand 
                                 command={command} 
@@ -65,6 +67,7 @@ const CommandComponent = ({ command, onUpdate, onRemove, executionState, onAddCh
                                 <button onClick={() => onAddCommand({ type: 'open-nearest-chest' })} className="p-3 bg-yellow-600 hover:bg-yellow-700 rounded-lg">En Yakın Sandığı Aç</button>
                                 <button onClick={() => onAddCommand({ type: 'open-chest-at', params: { x: '', y: '', z: '' } })} className="p-3 bg-yellow-600 hover:bg-yellow-700 rounded-lg">Sandık Aç (Koordinat)</button>
                                 <button onClick={() => onAddCommand({ type: 'deposit-to-chest', params: { excludedItems: '' } })} className="p-3 bg-orange-600 hover:bg-orange-700 rounded-lg">Eşyaları Bırak (Deposit)</button>
+                                <button onClick={() => onAddCommand({ type: 'follow-player', params: { targetUsername: '', duration: 10 } })} className="p-3 bg-teal-600 hover:bg-teal-700 rounded-lg">Takip Et (Follow)</button>
                                 <button onClick={() => onAddCommand({ type: 'repeat', params: { times: 2 }, children: [] })} className="p-3 bg-pink-600 hover:bg-pink-700 rounded-lg col-span-2">Döngü (Repeat)</button>
                             </div>
                             <button onClick={onClose} className="mt-6 w-full bg-background hover:bg-surface text-white font-bold py-2 px-4 rounded">İptal</button>
@@ -141,11 +144,32 @@ const CommandComponent = ({ command, onUpdate, onRemove, executionState, onAddCh
                 </div>
             );
             
-            const RepeatCommand = ({ command, onUpdate, onRemove, executionState, onAddChild, onUpdateChild, onRemoveChild }) => {
-                const [isModalOpen, setIsModalOpen] = useState(false);
-            
-                return (
-                    <div className="p-3 bg-background/50 rounded-lg">
+            const FollowCommand = ({ command, onUpdate, onRemove }) => (
+                <div className="p-3 bg-background/50 rounded-lg flex items-center gap-4">
+                    <span className="font-bold text-teal-400">Takip Et</span>
+                    <input 
+                        type="text" 
+                        value={command.params.targetUsername} 
+                        onChange={e => onUpdate(command.id, { ...command, params: { ...command.params, targetUsername: e.target.value }})} 
+                        className="bg-surface rounded p-1 w-32 text-center" 
+                        placeholder="Oyuncu Adı" 
+                    />
+                    <input 
+                        type="number" 
+                        min="1" 
+                        value={command.params.duration} 
+                        onChange={e => onUpdate(command.id, { ...command, params: { ...command.params, duration: parseInt(e.target.value) || 1 }})} 
+                        className="bg-surface rounded p-1 w-20 text-center" 
+                    />
+                    <span className="text-text-secondary">saniye</span>
+                    <button onClick={() => onRemove(command.id)} className="ml-auto text-red-500 hover:text-red-400 font-bold">X</button>
+                </div>
+            );
+                        
+                        const RepeatCommand = ({ command, onUpdate, onRemove, executionState, onAddChild, onUpdateChild, onRemoveChild }) => {
+                            const [isModalOpen, setIsModalOpen] = useState(false);
+                        
+                            return (                    <div className="p-3 bg-background/50 rounded-lg">
                         <AddCommandModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onAddCommand={(newCmd) => onAddChild(command.id, newCmd)} />
                         <div className="flex items-center gap-4 mb-3">
                             <span className="font-bold text-pink-400">Döngü</span>
@@ -205,7 +229,7 @@ const CommandComponent = ({ command, onUpdate, onRemove, executionState, onAddCh
                 });
             };
             
-            const ScriptingView = ({ username, script, setScript }) => {
+            const ScriptingView = ({ username, script, setScript, selectedAccounts }) => {
                 const [isModalOpen, setIsModalOpen] = useState(false);
                 const [executionState, setExecutionState] = useState({ isRunning: false, currentCommandId: null, completedCommandIds: new Set(), errorCommandId: null });
             
@@ -300,7 +324,7 @@ const CommandComponent = ({ command, onUpdate, onRemove, executionState, onAddCh
                     event.target.value = null; // Reset file input
                 };
             
-                const executeCommands = async (commandsToExecute) => {
+                const executeCommands = async (commandsToExecute, forUsername) => {
                     if (!Array.isArray(commandsToExecute)) return;
             
                     for (const command of commandsToExecute) {
@@ -310,23 +334,25 @@ const CommandComponent = ({ command, onUpdate, onRemove, executionState, onAddCh
             
                         if (command.type === 'repeat') {
                             for (let i = 0; i < command.params.times; i++) {
-                                await executeCommands(command.children || []);
+                                await executeCommands(command.children || [], forUsername);
                                 if (executionState.errorCommandId) throw new Error("Script durduruldu.");
                             }
                         } else if (command.type === 'move') {
-                            await window.api.moveTo(username, String(command.params.x), String(command.params.y), String(command.params.z));
+                            await window.api.moveTo(forUsername, String(command.params.x), String(command.params.y), String(command.params.z));
                         } else if (command.type === 'wait') {
                             await new Promise(resolve => setTimeout(resolve, command.params.milliseconds));
                         } else if (command.type === 'say') {
-                            window.api.sendChatMessage(username, command.params.message);
+                            window.api.sendChatMessage(forUsername, command.params.message);
                         } else if (command.type === 'break-block') {
-                            await window.api.breakBlock(username, String(command.params.x), String(command.params.y), String(command.params.z));
+                            await window.api.breakBlock(forUsername, String(command.params.x), String(command.params.y), String(command.params.z));
                         } else if (command.type === 'open-nearest-chest') {
-                            await window.api.openNearestChest(username);
+                            await window.api.openNearestChest(forUsername);
                         } else if (command.type === 'open-chest-at') {
-                            await window.api.openChestAt(username, String(command.params.x), String(command.params.y), String(command.params.z));
+                            await window.api.openChestAt(forUsername, String(command.params.x), String(command.params.y), String(command.params.z));
                         } else if (command.type === 'deposit-to-chest') {
-                            await window.api.depositToChest(username, command.params.excludedItems);
+                            await window.api.depositToChest(forUsername, command.params.excludedItems);
+                        } else if (command.type === 'follow-player') {
+                            await window.api.followPlayer(forUsername, command.params.targetUsername, command.params.duration);
                         }
                         
                         setExecutionState(prev => ({ ...prev, completedCommandIds: new Set(prev.completedCommandIds).add(command.id) }));
@@ -338,16 +364,34 @@ const CommandComponent = ({ command, onUpdate, onRemove, executionState, onAddCh
                     setExecutionState(initialExecutionState);
                     
                     try {
-                        await executeCommands(safeScript);
+                        await executeCommands(safeScript, username);
                     } catch (error) {
                         console.error("Script hatası:", error);
                         setExecutionState(prev => ({ ...prev, errorCommandId: prev.currentCommandId, isRunning: false }));
                     } finally {
-                        // isRunning'i sadece hata durumunda false yap, başarılı durumda bir süre sonra resetle
                         if (!executionState.errorCommandId) {
                              setTimeout(() => setExecutionState({ isRunning: false, currentCommandId: null, completedCommandIds: new Set(), errorCommandId: null }), 2000);
                         } else {
                              setExecutionState(prev => ({ ...prev, isRunning: false }));
+                        }
+                    }
+                };
+
+                const handleRunScriptOnSelected = async () => {
+                    if (selectedAccounts.length === 0) {
+                        toast.info("Lütfen en az bir hesap seçin.");
+                        return;
+                    }
+                    
+                    toast.info(`${selectedAccounts.join(', ')} için script çalıştırılıyor...`);
+
+                    for (const user of selectedAccounts) {
+                        try {
+                           await executeCommands(safeScript, user);
+                        } catch (error) {
+                            toast.error(`${user} için script hatası: ${error.message}`);
+                            // Optionally stop for all if one fails
+                            // break; 
                         }
                     }
                 };
@@ -363,7 +407,10 @@ const CommandComponent = ({ command, onUpdate, onRemove, executionState, onAddCh
                                     İçe Aktar <input type="file" accept=".json" className="hidden" onChange={handleImportScript} />
                                 </label>
                                 <button onClick={handleRunScript} disabled={executionState.isRunning} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded disabled:bg-gray-500 disabled:cursor-not-allowed">
-                                    {executionState.isRunning ? 'Çalışıyor...' : "Script'i Çalıştır"}
+                                    {executionState.isRunning ? 'Çalışıyor...' : `Script'i Çalıştır (${username})`}
+                                </button>
+                                <button onClick={handleRunScriptOnSelected} disabled={selectedAccounts.length === 0} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:bg-gray-500 disabled:cursor-not-allowed">
+                                    Seçililerde Çalıştır ({selectedAccounts.length})
                                 </button>
                             </div>
                         </div>

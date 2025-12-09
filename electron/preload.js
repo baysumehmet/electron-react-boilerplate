@@ -34,6 +34,7 @@ contextBridge.exposeInMainWorld('api', {
   depositAll: (username) => ipcRenderer.send('deposit-all', username),
   withdrawAll: (username) => ipcRenderer.send('withdraw-all', username),
   depositToChest: (username, excludedItems) => ipcRenderer.invoke('deposit-to-chest', { username, excludedItems }),
+  followPlayer: (username, targetUsername, duration) => ipcRenderer.invoke('follow-player', { username, targetUsername, duration }),
 
   // Depolama
   loadAccounts: () => ipcRenderer.invoke('load-accounts'),
